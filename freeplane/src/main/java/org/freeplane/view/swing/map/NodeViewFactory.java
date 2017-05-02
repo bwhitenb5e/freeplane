@@ -162,13 +162,11 @@ class NodeViewFactory {
 	private void updateNewView(final NodeView newView) {
 		newView.getModel().addViewer(newView);
 		newView.setLayout(SelectableLayout.getInstance());
-		updateNoteViewer(newView);
 		newView.update();
         fireNodeViewCreated(newView);
         newView.addChildViews();
 	}
 
-	private final Icon coloredIcon = createColoredIcon();
 	private static final IMouseListener DETAILS_MOUSE_LISTENER = new DetailsViewMouseListener();
 	private static final IMouseListener NOTE_MOUSE_LISTENER = new NoteViewMouseListener();
 
@@ -176,35 +174,14 @@ class NodeViewFactory {
 		final ZoomableLabel label = new ZoomableLabel();
 		label.addMouseListener(NOTE_MOUSE_LISTENER);
 		label.addMouseMotionListener(NOTE_MOUSE_LISTENER);
-		label.setIcon(coloredIcon);
+		label.setIcon(NoteController.bwNoteIcon);
 		label.setVerticalTextPosition(JLabel.TOP);
 		return label;
 	}
 	
-	static ColoredIconCreator coloredIconCreator = new ColoredIconCreator(NoteController.bwNoteIconUrl,  Color.BLACK);
-
-	private Icon createColoredIcon() {
-		return new Icon() {
-			public void paintIcon(Component c, Graphics g, int x, int y) {
-				NodeView nodeView = (NodeView) SwingUtilities.getAncestorOfClass(NodeView.class, c);
-				if(nodeView == null)
-					return;
-				final Color iconColor =  nodeView.getEdgeColor();
-				coloredIconCreator.createColoredIcon(iconColor).paintIcon(c, g, x, y);
-			}
-
-			public int getIconWidth() {
-				return coloredIconCreator.createColoredIcon(Color.BLACK).getIconWidth();
-			}
-
-			public int getIconHeight() {
-				return coloredIconCreator.createColoredIcon(Color.BLACK).getIconHeight();
-			}
-		};
-    }
 
 	
-	void updateNoteViewer(NodeView nodeView) {
+	void updateNoteViewer(NodeView nodeView, int minNodeWidth, int maxNodeWidth) {
 		ZoomableLabel note = (ZoomableLabel) nodeView.getContent(NodeView.NOTE_VIEWER_POSITION);
 		String oldText = note != null ? note.getText() : null;
 		String newText  = null;
@@ -236,6 +213,10 @@ class NodeViewFactory {
 		view.setBackground(map.getNoteBackground());
 		view.setHorizontalAlignment(map.getNoteHorizontalAlignment());
 		view.updateText(newText);
+		view.setMinimumWidth(minNodeWidth);
+		view.setMaximumWidth(maxNodeWidth);
+		view.revalidate();
+		map.repaint();
 
 	}
 

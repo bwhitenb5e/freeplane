@@ -21,6 +21,10 @@ package org.freeplane.plugin.script;
 
 import java.io.File;
 import java.io.PrintStream;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.security.PrivilegedActionException;
+import java.security.PrivilegedExceptionAction;
 import java.util.regex.Matcher;
 
 import org.codehaus.groovy.ast.ASTNode;
@@ -30,8 +34,10 @@ import org.codehaus.groovy.runtime.InvokerHelper;
 import org.freeplane.features.map.NodeModel;
 import org.freeplane.features.mode.Controller;
 import org.freeplane.plugin.script.proxy.ProxyFactory;
+import org.freeplane.securegroovy.GroovyPatcher;
 
 import groovy.lang.Binding;
+import groovy.lang.GroovyObject;
 import groovy.lang.GroovyRuntimeException;
 import groovy.lang.Script;
 
@@ -125,14 +131,17 @@ public class GroovyScript implements IScript {
                 throw new ExecuteScriptException(errorsInScript.getMessage(), errorsInScript);
             }
             final PrintStream oldOut = System.out;
+            ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
             try {
-                compileAndCache();
+                trustedCompileAndCache();
+                Thread.currentThread().setContextClassLoader(scriptClassLoader);
                 final Binding binding = createBinding(node);
                 compiledScript.setBinding(binding);
                 System.setOut(outStream);
 				return compiledScript.run();
             } finally {
                 System.setOut(oldOut);
+                Thread.currentThread().setContextClassLoader(contextClassLoader);
             }
         } catch (final GroovyRuntimeException e) {
             handleScriptRuntimeException(e);
@@ -154,9 +163,33 @@ public class GroovyScript implements IScript {
                 .getScriptingSecurityManager();
     }
 
-    private Script compileAndCache() throws Throwable {
-		final ScriptingSecurityManager scriptingSecurityManager = createScriptingSecurityManager();
-        if (compileTimeStrategy.canUseOldCompiledScript()) {
+    private void trustedCompileAndCache() throws Throwable {
+    	final ScriptingSecurityManager scriptingSecurityManager = createScriptingSecurityManager();
+    	AccessController.doPrivileged(new PrivilegedExceptionAction<Void>() {
+
+			@Override
+			public Void run() throws PrivilegedActionException {
+				try {
+					compileAndCache(scriptingSecurityManager);
+				} catch (Exception e) {
+					throw new PrivilegedActionException(e);
+				} catch (Error e) {
+					throw e;
+				} catch (Throwable e) {
+					throw new RuntimeException(e);
+				}
+				return null;
+			}
+		});
+	}
+
+    private static boolean groovyPatched = false; 
+    private Script compileAndCache(final ScriptingSecurityManager scriptingSecurityManager) throws Throwable {
+    	if(! groovyPatched){
+    		GroovyPatcher.apply(GroovyObject.class);
+    		groovyPatched = true;
+    	}
+    	if (compileTimeStrategy.canUseOldCompiledScript()) {
 			scriptClassLoader.setSecurityManager(scriptingSecurityManager);
             return compiledScript;
         }

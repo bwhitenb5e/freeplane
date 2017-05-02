@@ -26,12 +26,15 @@ import java.util.Collection;
 
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JComboBox;
+import javax.swing.JLabel;
+import javax.swing.UIManager;
 import javax.swing.event.ListDataEvent;
 import javax.swing.event.ListDataListener;
 
 import org.freeplane.core.extension.IExtension;
 import org.freeplane.core.ui.FixedBasicComboBoxEditor;
 import org.freeplane.core.ui.components.JComboBoxWithBorder;
+import org.freeplane.core.ui.components.UITools;
 import org.freeplane.features.map.IMapChangeListener;
 import org.freeplane.features.map.IMapSelection;
 import org.freeplane.features.map.IMapSelectionListener;
@@ -189,23 +192,25 @@ public class MUIFactory implements INodeSelectionListener, INodeChangeListener, 
 
 	public Container createStyleBox() {
 		final JComboBox stylesBox = new JComboBoxWithBorder(styles);
+		stylesBox.setPrototypeDisplayValue("XXXXXXXXXXXXXXXXXXXXXXXX");
 		stylesBox.setRenderer(new ComboBoxRendererWithTooltip(stylesBox));
 		return stylesBox;
 	}
 
 	public Container createSizeBox() {
 		final JComboBox sizeBox = new JComboBoxWithBorder(size);
-		final Dimension preferredSize = sizeBox.getPreferredSize();
-		sizeBox.setPreferredSize(new Dimension(50, preferredSize.height));
+		sizeBox.setPrototypeDisplayValue("88888");
+		sizeBox.setPreferredSize(sizeBox.getPreferredSize());
 		sizeBox.setEditor(new FixedBasicComboBoxEditor());
 		sizeBox.setEditable(true);
 		return sizeBox;
 	}
 
 	public Container createFontBox() {
-		final JComboBox fontsBox = new JComboBoxWithBorder(fonts);
-		fontsBox.setMaximumRowCount(9);
+		final JComboBox fontsBox = new JComboBoxWithBorder();
 		fontsBox.setRenderer(new ComboBoxRendererWithTooltip(fontsBox));
+		final Dimension preferredSize = fontsBox.getPreferredSize();
+		fontsBox.setModel(fonts);
 		return fontsBox;
 	}
 

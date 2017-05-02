@@ -21,12 +21,15 @@ package org.freeplane.view.swing.map;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.KeyboardFocusManager;
+import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.SystemColor;
 import java.awt.image.BufferedImage;
 import java.awt.image.RenderedImage;
 import java.io.File;
@@ -41,7 +44,9 @@ import java.util.Map;
 import java.util.Vector;
 
 import javax.swing.DefaultComboBoxModel;
+import javax.swing.FocusManager;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JOptionPane;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
@@ -53,8 +58,11 @@ import org.freeplane.core.resources.IFreeplanePropertyListener;
 import org.freeplane.core.resources.ResourceController;
 import org.freeplane.core.ui.components.JComboBoxWithBorder;
 import org.freeplane.core.ui.components.UITools;
+import org.freeplane.core.ui.image.BigBufferedImage;
 import org.freeplane.core.util.TextUtils;
+import org.freeplane.features.map.IMapLifeCycleListener;
 import org.freeplane.features.map.IMapSelection;
+import org.freeplane.features.map.IMapSelection.NodePosition;
 import org.freeplane.features.map.IMapSelectionListener;
 import org.freeplane.features.map.MapController;
 import org.freeplane.features.map.MapModel;
@@ -73,7 +81,7 @@ import org.freeplane.features.ui.ViewController;
  * exchange between controller and this class is managed by observer pattern
  * (the controller observes changes to the map mapViews here).
  */
-public class MapViewController implements IMapViewManager , IMapViewChangeListener, IFreeplanePropertyListener {
+public class MapViewController implements IMapViewManager , IMapViewChangeListener, IFreeplanePropertyListener, IMapLifeCycleListener {
 	private String lastModeName;
 	/** reference to the current mapmapView; null is allowed, too. */
 	private MapView selectedMapView;
@@ -93,6 +101,7 @@ public class MapViewController implements IMapViewManager , IMapViewChangeListen
 	public MapViewController(Controller controller){
 		this.controller =controller;
 		controller.setMapViewManager(this);
+		controller.addMapLifeCycleListener(this);
 		addMapViewChangeListener(this);
 		zoomIn = new ZoomInAction(this);
 		controller.addAction(zoomIn);
@@ -249,23 +258,51 @@ public class MapViewController implements IMapViewManager , IMapViewChangeListen
 	/* (non-Javadoc)
 	 * @see org.freeplane.core.frame.IMapViewController#close(boolean)
 	 */
-	public boolean close(final boolean force) {
+	public boolean close() {
 		final MapView mapView = getMapView();
-		return close(mapView, force);
+		return close(mapView);
+	}
+	
+	@Override
+	public void closeWithoutSaving() {
+		final MapView mapView = getMapView();
+		closeWithoutSaving(mapView);
 	}
 
-	public boolean close(final Component mapViewComponent, final boolean force) {
+
+	public boolean close(final Component mapViewComponent) {
+		return close(mapViewComponent, false);
+	}
+	
+	public boolean closeWithoutSaving(final Component mapViewComponent) {
+		return close(mapViewComponent, true);
+	}
+	
+	private boolean close(final Component mapViewComponent, boolean forceCloseWithoutSaving) {
 	    if (mapViewComponent == null) {
 			return false;
 		}
 		MapView mapView = (MapView) mapViewComponent;
-		final MapController mapController = mapView.getModeController().getMapController();
-		final boolean closingNotCancelled = mapController.close(mapView.getModel(), force);
-		if (!closingNotCancelled) {
-			return false;
+		final MapModel map = mapView.getModel();
+		final int viewCount = getViews(map).size();
+		if(viewCount == 1) {
+			final MapController mapController = mapView.getModeController().getMapController();
+			if(forceCloseWithoutSaving){
+				mapController.closeWithoutSaving(map);
+				return true;
+			}
+			else
+				return map.close();
+			
 		}
+		map.removeMapChangeListener(mapView);
+		remove(mapView);
+		mapView.getRoot().remove();
+		return true;
+    }
+
+	private void remove(MapView mapView) {
 		int index = mapViewVector.indexOf(mapView);
-		mapController.removeMapChangeListener(mapView);
 		ResourceController.getResourceController().removePropertyChangeListener(mapView);
 		mapViewVector.remove(mapView);
 		if (mapViewVector.isEmpty()) {
@@ -279,9 +316,7 @@ public class MapViewController implements IMapViewManager , IMapViewChangeListen
 			changeToMapView((mapViewVector.get(index)));
 		}
 		mapViewChangeListeners.afterMapViewClose(mapView);
-		mapView.getRoot().remove();
-		return true;
-    }
+	}
 
 	public String createHtmlMap() {
 		final MapModel model = getModel();
@@ -297,18 +332,63 @@ public class MapViewController implements IMapViewManager , IMapViewChangeListen
 		}
 		view.preparePrinting();
 		final Rectangle innerBounds = view.getInnerBounds();
+		return createImage(dpi, innerBounds);
+	}
 
-		double scaleFactor = (double) dpi / (double) UITools.getScreenResolution();
+	public RenderedImage createImage(final Dimension slideSize, NodeModel placedNode, NodePosition placedNodePosition, int dpi) {
+		final MapView view = getMapView();
+		if (view == null) {
+			return null;
+		}
+		final NodeView placedNodeView = view.getNodeView(placedNode);
+		if (placedNodeView == null) {
+			return createImage(dpi);
+		}
+
+		view.preparePrinting();
+		final JComponent content = placedNodeView.getContent();
+		Point contentLocation = new Point();
+		UITools.convertPointToAncestor(content, contentLocation, view);
+		final Rectangle printedGraphicsBounds = new Rectangle(contentLocation.x + content.getWidth() / 2 - slideSize.width / 2, 
+				contentLocation.y + content.getHeight() / 2 - slideSize.height
+				/ 2, slideSize.width, slideSize.height);
+		
+		final int distanceToMargin = (slideSize.width - content.getWidth()) / 2 - 10;
+		if(placedNodePosition == NodePosition.WEST){
+			printedGraphicsBounds.x += distanceToMargin;
+		}
+		if(placedNodePosition == NodePosition.EAST){
+			printedGraphicsBounds.x -= distanceToMargin;
+		}
+		return createImage(dpi, printedGraphicsBounds);
+	}
+
+	public RenderedImage createImage(int dpi, final Rectangle printedArea) {
+		final MapView view = getMapView();
+		view.preparePrinting();
+		final BufferedImage myImage = printToImage(dpi, view, printedArea);
+		view.endPrinting();
+		return myImage;
+	}
+
+	private BufferedImage printToImage(int dpi, final MapView view, final Rectangle innerBounds) {
+		double scaleFactor = (double) dpi / (double) (UITools.FONT_SCALE_FACTOR * 72);
 
 		int imageWidth = (int) Math.ceil(innerBounds.width * scaleFactor);
 		int imageHeight = (int) Math.ceil(innerBounds.height * scaleFactor);
 
-		final BufferedImage myImage = (BufferedImage) view.createImage(imageWidth, imageHeight);
+		final BufferedImage myImage = BigBufferedImage.create(imageWidth, imageHeight, BufferedImage.TYPE_INT_RGB);
 		final Graphics2D g = (Graphics2D) myImage.getGraphics();
+		Color background = view.getBackground();
+        if(background == null) {
+            background = SystemColor.window;
+        }
+
+		g.setBackground(background);
+		g.clearRect(0, 0, imageWidth, imageHeight);
 		g.scale(scaleFactor, scaleFactor);
 		g.translate(-innerBounds.x, -innerBounds.y);
 		view.print(g);
-		view.endPrinting();
 		return myImage;
 	}
 
@@ -346,6 +426,23 @@ public class MapViewController implements IMapViewManager , IMapViewChangeListen
 		if(nodeView == null)
 			return node.isFolded();
 		return nodeView.isFolded();
+	}
+	
+
+	@Override
+	public void displayOnCurrentView(NodeModel node) {
+		if(selectedMapView != null)
+			selectedMapView.display(node);
+	}
+	
+	public void setFoldedOnCurrentView(NodeModel node, boolean folded){
+		if(selectedMapView == null || ! node.hasChildren())
+			return;
+		final NodeView nodeView = selectedMapView.getNodeView(node);
+		if(nodeView == null)
+			return;
+		nodeView.setFolded(folded);
+		
 	}
 
 	/* (non-Javadoc)
@@ -474,7 +571,7 @@ public class MapViewController implements IMapViewManager , IMapViewChangeListen
 	public void newMapView(final MapModel map, final ModeController modeController) {
 		final MapView mapView = new MapView(map, modeController);
 		addToOrChangeInMapViews(mapView.getName(), mapView);
-		modeController.getMapController().addMapChangeListener(mapView);
+		map.addMapChangeListener(mapView);
 		ResourceController.getResourceController().addPropertyChangeListener(mapView);
 		mapViewChangeListeners.mapViewCreated(mapView);
 		changeToMapView(mapView);
@@ -761,7 +858,8 @@ public class MapViewController implements IMapViewManager , IMapViewChangeListen
 		return zoomValue;
 	}
 
-	private static final String[] zooms = { "25%", "50%", "75%", "100%", "150%", "200%", "300%", "400%" };
+	private static final String[] zooms = { "25%", "50%", "75%", "100%", 
+			"150%", "200%", "300%", "400%", "600%", "800%", "1200%", "1600%" , "2400%", "3200%" };
 	public void obtainFocusForSelected() {
 		SwingUtilities.invokeLater(new Runnable() {
 			public void run() {
@@ -775,22 +873,6 @@ public class MapViewController implements IMapViewManager , IMapViewChangeListen
 		});
 	}
 
-	public boolean closeAllMaps() {
-		while (getMapViewVector().size() > 0) {
-			if (getMapView() != null) {
-				final boolean closingNotCancelled = close(false);
-				if (!closingNotCancelled) {
-					return false;
-				}
-			}
-			else {
-				nextMapView();
-			}
-		}
-		ResourceController.getResourceController().setProperty("antialiasEdges", (antialiasEdges ? "true" : "false"));
-		ResourceController.getResourceController().setProperty("antialiasAll", (antialiasAll ? "true" : "false"));
-		return true;
-	}
 	private boolean antialiasAll = false;
 	private boolean antialiasEdges = false;
 	private JComboBox zoomBox;
@@ -883,4 +965,94 @@ public class MapViewController implements IMapViewManager , IMapViewChangeListen
 		controller.getViewController().setTitle(frameTitle);
 		modeController.getUserInputListenerFactory().updateMapList();
 	}
+
+	@Override
+	public void onCreate(MapModel map) {
+	}
+
+	@Override
+	public void onRemove(MapModel map) {
+		final List<Component> views = getViews(map);
+		for(Component view : views)
+			remove((MapView)view);
+	}
+
+	@Override
+	public void onQuitApplication() {
+		ResourceController.getResourceController().setProperty("antialiasEdges", (antialiasEdges ? "true" : "false"));
+		ResourceController.getResourceController().setProperty("antialiasAll", (antialiasAll ? "true" : "false"));
+	}
+
+	@Override
+	public void moveFocusFromDescendantToSelection(Component ancestor) {
+		Component focusOwner = FocusManager.getCurrentManager().getFocusOwner();
+		boolean toolbarLostFocus = focusOwner != null && SwingUtilities.isDescendingFrom(focusOwner, ancestor);
+		if (toolbarLostFocus) {
+			final Component selectedComponent = getSelectedComponent();
+			if (selectedComponent != null)
+				selectedComponent.requestFocus();
+		}
+	}
+
+	@Override
+	public boolean isChildHidden(NodeModel node) {
+		if(selectedMapView == null)
+			return false;
+		final NodeModel parentNode = node.getParentNode();
+		if(parentNode == null)
+			return false;
+		final NodeView nodeView = selectedMapView.getNodeView(parentNode);
+		if(nodeView == null)
+			return false;
+		return nodeView.isChildHidden(node);
+	}
+
+	@Override
+	public boolean hasHiddenChildren(NodeModel node) {
+		if(selectedMapView == null)
+			return false;
+		final NodeView nodeView = selectedMapView.getNodeView(node);
+		if(nodeView == null)
+			return false;
+		return nodeView.hasHiddenChildren();
+	}
+
+	@Override
+	public boolean unfoldHiddenChildren(NodeModel node) {
+		if(selectedMapView == null)
+			return false;
+		final NodeView nodeView = selectedMapView.getNodeView(node);
+		if(nodeView == null)
+			return false;
+		return nodeView.unfoldHiddenChildren();
+	}
+
+	@Override
+	public void hideChildren(NodeModel node) {
+		if(selectedMapView == null)
+			return; 
+		final NodeView nodeView = selectedMapView.getNodeView(node);
+		if(nodeView == null)
+			return; 
+		nodeView.hideChildren(node);
+	}
+
+	@Override
+	public boolean showHiddenNode(NodeModel node) {
+		if(selectedMapView == null)
+			return false;
+		final NodeModel parentNode = node.getParentNode();
+		if(parentNode == null)
+			return false;
+		final NodeView nodeView = selectedMapView.getNodeView(parentNode);
+		if(nodeView == null)
+			return false;
+		return nodeView.showHiddenNode(node);
+	}
+
+	@Override
+	public boolean isSpotlightEnabled() {
+		return selectedMapView != null && selectedMapView.isSpotlightEnabled();
+	}
+
 }

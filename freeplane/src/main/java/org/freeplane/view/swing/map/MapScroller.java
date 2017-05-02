@@ -10,7 +10,7 @@ import javax.swing.JViewport;
 
 import org.freeplane.core.ui.components.UITools;
 import org.freeplane.features.map.NodeModel;
-import org.freeplane.features.mode.ModeController;
+import org.freeplane.features.map.IMapSelection.NodePosition;
 import org.freeplane.features.ui.ViewController;
 
 class MapScroller {
@@ -93,6 +93,13 @@ class MapScroller {
 				contentLocation.y + content.getHeight() / 2 - extentSize.height
 				/ 2, extentSize.width, extentSize.height);
 		
+		final int distanceToMargin = (extentSize.width - content.getWidth()) / 2 - 10;
+		if(scrollingDirective == ScrollingDirective.SCROLL_NODE_TO_LEFT_MARGIN){
+			rect.x += distanceToMargin;
+		}
+		if(scrollingDirective == ScrollingDirective.SCROLL_NODE_TO_RIGHT_MARGIN){
+			rect.x -= distanceToMargin;
+		}
 		if(scrollingDirective == ScrollingDirective.SCROLL_TO_BEST_ROOT_POSITION){
 			final Rectangle innerBounds = map.getInnerBounds();
 			if(innerBounds.width <= extentSize.width && map.getModeController().shouldCenterCompactMaps()){
@@ -100,15 +107,14 @@ class MapScroller {
 			}
 			else {
 				NodeView root = map.getRoot();
-				if(!map.isOutlineLayoutSet()) {
+				final boolean outlineLayoutSet = map.isOutlineLayoutSet();
+				if(!outlineLayoutSet) {
 					boolean scrollToTheLeft = false;
-
 					final List<NodeModel> children = root.getModel().getChildren();
 					if(! children.isEmpty()){
 						scrollToTheLeft = true;
-						final boolean outlineLayoutSet = map.isOutlineLayoutSet();
 						for(NodeModel node :children) {
-							if(! outlineLayoutSet && node.isLeft()){
+							if(node.isLeft()){
 								scrollToTheLeft = false;
 								break;
 							}
@@ -161,6 +167,8 @@ class MapScroller {
 	}
 
 	private void scrollNodeToVisible(final NodeView node, final int extraWidth) {
+		if(node == null)
+			return;
 		if(scrollingDirective == ScrollingDirective.DONE || scrollingDirective == ScrollingDirective.ANCHOR)
 			scrollingDirective = ScrollingDirective.MAKE_NODE_VISIBLE;
 		if (scrolledNode != null && scrollingDirective != ScrollingDirective.MAKE_NODE_VISIBLE) {
@@ -280,4 +288,10 @@ class MapScroller {
 
 }
 
-enum ScrollingDirective {SCROLL_NODE_TO_CENTER, SCROLL_TO_BEST_ROOT_POSITION, MAKE_NODE_VISIBLE, DONE, ANCHOR}
+enum ScrollingDirective {
+	SCROLL_NODE_TO_CENTER, SCROLL_NODE_TO_LEFT_MARGIN, SCROLL_NODE_TO_RIGHT_MARGIN, SCROLL_TO_BEST_ROOT_POSITION, MAKE_NODE_VISIBLE, DONE, ANCHOR;
+	private static ScrollingDirective positionDirective[] = {SCROLL_NODE_TO_LEFT_MARGIN, SCROLL_NODE_TO_CENTER, SCROLL_NODE_TO_RIGHT_MARGIN};
+	public static ScrollingDirective of(NodePosition position) {
+		return positionDirective[position.ordinal()];
+	}
+}

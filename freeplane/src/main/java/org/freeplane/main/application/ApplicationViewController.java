@@ -77,7 +77,7 @@ class ApplicationViewController extends FrameController {
 	final private JSplitPane mSplitPane;
 	final private NavigationNextMapAction navigationNextMap;
 	final private NavigationPreviousMapAction navigationPreviousMap;
-	final private ResourceController resourceController;
+	final private ApplicationResourceController resourceController;
 	private JComponent mapPane;
 	private MapViewDockingWindows mapViewWindows;
 	@SuppressWarnings("serial")
@@ -89,7 +89,7 @@ class ApplicationViewController extends FrameController {
 		controller.addAction(navigationPreviousMap);
 		navigationNextMap = new NavigationNextMapAction();
 		controller.addAction(navigationNextMap);
-		resourceController = ResourceController.getResourceController();
+		resourceController = (ApplicationResourceController) ResourceController.getResourceController();
 		this.frame = frame;
 		frame.getContentPane().setLayout(new BorderLayout());
 		// --- Set Note Window Location ---
@@ -218,6 +218,7 @@ class ApplicationViewController extends FrameController {
 		if (!super.quit()) {
 			return false;
 		}
+		controller.fireApplicationStopped();
 		frame.dispose();
 		return true;
 	}
@@ -268,6 +269,7 @@ class ApplicationViewController extends FrameController {
 			resourceController.setProperty("appwindow_state", String.valueOf(winState));
 		}
 		mapViewWindows.saveLayout();
+		resourceController.getLastOpenedList().saveProperties();
 	}
 
 	private void saveSplitPanePosition() {
@@ -398,7 +400,7 @@ class ApplicationViewController extends FrameController {
 	}
 
 	@Override
-	protected void setFullScreen(boolean fullScreen) {
+	public void setFullScreen(boolean fullScreen) {
 		super.setFullScreen(fullScreen);
 		if(fullScreen)
 			mapViewWindows.setTabAreaInvisiblePolicy((JFrame) UITools.getCurrentRootComponent());

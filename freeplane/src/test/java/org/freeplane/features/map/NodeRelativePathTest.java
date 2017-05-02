@@ -47,6 +47,13 @@ public class NodeRelativePathTest {
 	}
 
 	@Test
+	public void zeroLevelAncestorPahLength(){
+		final NodeModel parent = root();
+		final NodeRelativePath nodeRelativePath = new NodeRelativePath(parent, parent);
+		assertThat(nodeRelativePath.getPathLength(),  equalTo(0));
+	}
+
+	@Test
 	public void zeroLevelBegin(){
 		final NodeModel parent = root();
 		final NodeRelativePath nodeRelativePath = new NodeRelativePath(parent, parent);
@@ -85,6 +92,17 @@ public class NodeRelativePathTest {
 	}
 	
 	@Test
+	public void oneLevelAncestorPathLength(){
+		final NodeModel parent = root();
+		final NodeModel node1 = new NodeModel("node1", map);
+		parent.insert(node1);
+		final NodeModel node2 = new NodeModel("node2", map);
+		parent.insert(node2);
+		final NodeRelativePath nodeRelativePath = new NodeRelativePath(node1, node2);
+		assertThat(nodeRelativePath.getPathLength(),  equalTo(2));
+	}
+	
+	@Test
 	public void equalPaths(){
 		final NodeModel parent = root();
 		final NodeModel node1 = new NodeModel("node1", map);
@@ -115,5 +133,53 @@ public class NodeRelativePathTest {
 		parent.insert(node2);
 		final NodeRelativePath nodeRelativePath = new NodeRelativePath(node1, node2);
 		assertThat(nodeRelativePath.endPathElement(1), equalTo(node2));
+	}
+
+	@Test
+	public void compareNodesWithSameParent(){
+		final NodeModel parent = root();
+		final NodeModel node1 = new NodeModel("node1", map);
+		parent.insert(node1);
+		final NodeModel node2 = new NodeModel("node2", map);
+		parent.insert(node2);
+		final int compared = new NodeRelativePath(node1, node2).compareNodePositions();
+		assertTrue(compared < 0);
+	}
+	
+
+	@Test
+	public void compareNodesWithSameParentUsingComparator(){
+		final NodeModel parent = root();
+		final NodeModel node1 = new NodeModel("node1", map);
+		parent.insert(node1);
+		final NodeModel node2 = new NodeModel("node2", map);
+		parent.insert(node2);
+		final int compared = NodeRelativePath.comparator().compare(node2, node1);
+		assertTrue(compared > 0);
+	}
+	
+	@Test
+	public void compareSameNode(){
+		final NodeModel parent = root();
+		final int compared = new NodeRelativePath(parent, parent).compareNodePositions();
+		assertTrue(compared == 0);
+	}
+
+	@Test
+	public void compareParentToDescendantNode(){
+		final NodeModel parent = root();
+		final NodeModel node1 = new NodeModel("node1", map);
+		parent.insert(node1);
+		final int compared = new NodeRelativePath(parent, node1).compareNodePositions();
+		assertTrue(compared < 0);
+	}
+
+	@Test
+	public void compareDescendantNodeToParent(){
+		final NodeModel parent = root();
+		final NodeModel node1 = new NodeModel("node1", map);
+		parent.insert(node1);
+		final int compared = new NodeRelativePath(parent, node1).compareNodePositions();
+		assertTrue(compared < 0);
 	}
 }

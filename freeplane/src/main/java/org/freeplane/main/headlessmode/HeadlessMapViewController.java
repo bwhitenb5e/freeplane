@@ -22,6 +22,7 @@ package org.freeplane.main.headlessmode;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.image.RenderedImage;
@@ -41,6 +42,7 @@ import org.freeplane.features.map.IMapSelection;
 import org.freeplane.features.map.IMapSelectionListener;
 import org.freeplane.features.map.MapModel;
 import org.freeplane.features.map.NodeModel;
+import org.freeplane.features.map.IMapSelection.NodePosition;
 import org.freeplane.features.mode.ModeController;
 import org.freeplane.features.ui.IMapViewChangeListener;
 import org.freeplane.features.ui.IMapViewManager;
@@ -109,13 +111,17 @@ public class HeadlessMapViewController implements IMapViewManager {
 			return null;
 	}
 
-	public boolean close(boolean withoutSave) {
-		if(currentMap == null)
-			return false;
-		maps.remove(currentKey);
-		currentKey = null;
-		currentMap = null;
+	public boolean close() {
+		closeWithoutSaving();
 		return true;
+	}
+	
+	public void closeWithoutSaving() {
+		if(currentMap != null) {
+			maps.remove(currentKey);
+			currentKey = null;
+			currentMap = null;
+		}
 	}
 
 	public String createHtmlMap() {
@@ -123,6 +129,10 @@ public class HeadlessMapViewController implements IMapViewManager {
 	}
 
 	public RenderedImage createImage(int dpi) {
+		throw new RuntimeException("Method not implemented");
+	}
+
+	public RenderedImage createImage(final Dimension slideSize, NodeModel placedNode, NodePosition placedNodePosition, int dpi) {
 		throw new RuntimeException("Method not implemented");
 	}
 
@@ -185,7 +195,7 @@ public class HeadlessMapViewController implements IMapViewManager {
 	public void newMapView(MapModel map, ModeController modeController) {
 		final String key = map.getURL().toString();
 		if(key.equals(currentKey))
-			close(true);
+			close();
 		maps.put(key, map);
 		changeToMapView(key);
 	}
@@ -271,7 +281,7 @@ public class HeadlessMapViewController implements IMapViewManager {
 		return true;
 	}
 
-	public boolean close(Component mapViewComponent, boolean force) {
+	public boolean close(Component mapViewComponent) {
 		throw new RuntimeException("Method not implemented");
     }
 
@@ -284,4 +294,53 @@ public class HeadlessMapViewController implements IMapViewManager {
 	public boolean isFoldedOnCurrentView(NodeModel node) {
 		return node.isFolded();
 	}
+
+	@Override
+	public void setFoldedOnCurrentView(NodeModel node, boolean folded) {
+		throw new RuntimeException("Method not implemented");
+	}
+	
+	@Override
+	public void onQuitApplication() {
+	}
+
+	@Override
+	public void moveFocusFromDescendantToSelection(Component ancestor) {
+		throw new RuntimeException("Method not implemented");
+	}
+
+	@Override
+	public void displayOnCurrentView(NodeModel node) {
+		throw new RuntimeException("Method not implemented");
+	}
+
+	@Override
+	public boolean isChildHidden(NodeModel nodeOnPath) {
+		return false;
+	}
+
+	@Override
+	public boolean hasHiddenChildren(NodeModel selected) {
+		return false;
+	}
+
+	@Override
+	public boolean unfoldHiddenChildren(NodeModel node) {
+		return false;
+	}
+
+	@Override
+	public void hideChildren(NodeModel node) {
+	}
+
+	@Override
+	public boolean showHiddenNode(NodeModel child) {
+		return false;
+	}
+
+	@Override
+	public boolean isSpotlightEnabled() {
+		return false;
+	}
+
 }

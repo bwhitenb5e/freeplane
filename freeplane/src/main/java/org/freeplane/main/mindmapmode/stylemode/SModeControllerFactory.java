@@ -43,6 +43,7 @@ import org.freeplane.features.edge.mindmapmode.MEdgeController;
 import org.freeplane.features.filter.FilterController;
 import org.freeplane.features.format.FormatController;
 import org.freeplane.features.format.ScannerController;
+import org.freeplane.features.highlight.HighlightController;
 import org.freeplane.features.icon.IconController;
 import org.freeplane.features.icon.mindmapmode.MIconController;
 import org.freeplane.features.link.LinkController;
@@ -72,7 +73,7 @@ import org.freeplane.features.styles.MapViewLayout;
 import org.freeplane.features.styles.mindmapmode.MLogicalStyleController;
 import org.freeplane.features.styles.mindmapmode.MUIFactory;
 import org.freeplane.features.styles.mindmapmode.ShowFormatPanelAction;
-import org.freeplane.features.styles.mindmapmode.StyleEditorPanel;
+import org.freeplane.features.styles.mindmapmode.styleeditorpanel.StyleEditorPanel;
 import org.freeplane.features.text.TextController;
 import org.freeplane.features.text.mindmapmode.MTextController;
 import org.freeplane.features.ui.ToggleToolbarAction;
@@ -94,7 +95,7 @@ import org.freeplane.view.swing.ui.mindmapmode.MNodeMouseWheelListener;
 public class SModeControllerFactory {
 	private static SModeControllerFactory instance;
 
-	static SModeControllerFactory getInstance() {
+	public static SModeControllerFactory getInstance() {
 		if (instance == null) {
 			instance = new SModeControllerFactory();
 		}
@@ -102,13 +103,17 @@ public class SModeControllerFactory {
 	}
 
 	private SModeController modeController;
+	private ExtensionInstaller extentionInstaller;
 
 	Controller createController(final JDialog dialog) {
+		Controller currentController = Controller.getCurrentController();
 		final Controller controller = new Controller(ResourceController.getResourceController());
 		Controller.setCurrentController(controller);
 		final MapViewController mapViewController = new MMapViewController(controller);
 		final DialogController viewController = new DialogController(controller, mapViewController, dialog);
 		controller.setViewController(viewController);
+		controller.addExtension(HighlightController.class, new HighlightController());
+		controller.addAction(currentController.getAction("AboutAction"));
 		FilterController.install();
 		TextController.install();
 		controller.addAction(new ViewLayoutTypeAction(MapViewLayout.OUTLINE));
@@ -126,9 +131,9 @@ public class SModeControllerFactory {
 		modeController.setUserInputListenerFactory(userInputListenerFactory);
 		controller.addExtension(ModelessAttributeController.class, new ModelessAttributeController());
 		new MMapController(modeController);
-		TextController.install(new MTextController(modeController));
+		new MTextController(modeController).install(modeController);
 		SpellCheckerController.install(modeController);
-		IconController.install(new MIconController(modeController));
+		new MIconController(modeController).install(modeController);
 		NodeStyleController.install(new MNodeStyleController(modeController));
 		LocationController.install(new MLocationController());
 		EdgeController.install(new MEdgeController(modeController));
@@ -160,6 +165,8 @@ public class SModeControllerFactory {
 		MapStyle.install(false);
 		controller.addModeController(modeController);
 		controller.selectModeForBuild(modeController);
+		if(extentionInstaller != null)
+			extentionInstaller.installExtensions(controller);
 		final SModeController modeController = this.modeController;
 		final StyleEditorPanel styleEditorPanel = new StyleEditorPanel(modeController, null, false);
 		modeController.addAction(new ShowFormatPanelAction());
@@ -223,5 +230,9 @@ public class SModeControllerFactory {
 	public static void install() {
 		ModeController modeController = Controller.getCurrentModeController();
 		modeController.addAction(new EditStylesAction());
+	}
+
+	public void setExtensionInstaller(ExtensionInstaller extentionInstaller) {
+		this.extentionInstaller = extentionInstaller;
 	}
 }

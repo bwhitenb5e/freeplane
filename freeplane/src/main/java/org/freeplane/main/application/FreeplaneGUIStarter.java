@@ -26,13 +26,9 @@ import java.awt.Frame;
 import java.awt.Window;
 import java.awt.event.KeyEvent;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.Collections;
-import java.util.Locale;
 import java.util.Set;
 
 import javax.swing.JFrame;
@@ -49,7 +45,6 @@ import org.freeplane.core.ui.components.UITools;
 import org.freeplane.core.ui.menubuilders.generic.ChildActionEntryRemover;
 import org.freeplane.core.ui.menubuilders.generic.PhaseProcessor.Phase;
 import org.freeplane.core.util.Compat;
-import org.freeplane.core.util.ConfigurationUtils;
 import org.freeplane.core.util.FreeplaneVersion;
 import org.freeplane.core.util.LogUtils;
 import org.freeplane.core.util.MenuUtils;
@@ -60,6 +55,7 @@ import org.freeplane.features.filter.NextPresentationItemAction;
 import org.freeplane.features.format.FormatController;
 import org.freeplane.features.format.ScannerController;
 import org.freeplane.features.help.HelpController;
+import org.freeplane.features.highlight.HighlightController;
 import org.freeplane.features.icon.IconController;
 import org.freeplane.features.link.LinkController;
 import org.freeplane.features.map.MapController;
@@ -68,7 +64,6 @@ import org.freeplane.features.map.mindmapmode.MMapController;
 import org.freeplane.features.mode.Controller;
 import org.freeplane.features.mode.ModeController;
 import org.freeplane.features.mode.QuitAction;
-import org.freeplane.features.mode.browsemode.BModeController;
 import org.freeplane.features.mode.filemode.FModeController;
 import org.freeplane.features.mode.mindmapmode.LoadAcceleratorPresetsAction;
 import org.freeplane.features.mode.mindmapmode.MModeController;
@@ -81,10 +76,11 @@ import org.freeplane.features.ui.FrameController;
 import org.freeplane.features.url.mindmapmode.MFileManager;
 import org.freeplane.main.addons.AddOnsController;
 import org.freeplane.main.application.CommandLineParser.Options;
-import org.freeplane.main.browsemode.BModeControllerFactory;
+import org.freeplane.main.application.survey.FreeplaneSurveyProperties;
+import org.freeplane.main.application.survey.SurveyRunner;
+import org.freeplane.main.application.survey.SurveyStarter;
 import org.freeplane.main.filemode.FModeControllerFactory;
 import org.freeplane.main.mindmapmode.MModeControllerFactory;
-import org.freeplane.n3.nanoxml.XMLException;
 import org.freeplane.view.swing.features.nodehistory.NodeHistory;
 import org.freeplane.view.swing.map.MapView;
 import org.freeplane.view.swing.map.ViewLayoutTypeAction;
@@ -174,7 +170,9 @@ public class FreeplaneGUIStarter implements FreeplaneStarter {
 			FreeplaneGUIStarter.showSysInfo();
 			final String lookandfeel = System.getProperty("lookandfeel", applicationResourceController
 			    .getProperty("lookandfeel"));
-			FrameController.setLookAndFeel(lookandfeel);
+			final boolean supportHidpi = Boolean.valueOf(System.getProperty("lookandfeel.scaleuifonts", applicationResourceController
+				    .getProperty("lookandfeel.scaleuifonts")));
+			FrameController.setLookAndFeel(lookandfeel, supportHidpi);
 			final JFrame frame;
 			frame = new JFrame("Freeplane");
 			frame.setContentPane(new JPanel(){
@@ -187,13 +185,14 @@ public class FreeplaneGUIStarter implements FreeplaneStarter {
 				
 			});
 			frame.setName(UITools.MAIN_FREEPLANE_FRAME);
+			final MMapViewController mapViewController = new MMapViewController(controller);
+			viewController = new ApplicationViewController(controller, mapViewController, frame);
 			splash = new FreeplaneSplashModern(frame);
 			if (!System.getProperty("org.freeplane.nosplash", "false").equals("true")) {
 				splash.setVisible(true);
 			}
-			final MMapViewController mapViewController = new MMapViewController(controller);
-			viewController = new ApplicationViewController(controller, mapViewController, frame);
 			mapViewController.addMapViewChangeListener(applicationResourceController.getLastOpenedList());
+			controller.addExtension(HighlightController.class, new HighlightController());
 			FilterController.install();
 			PrintController.install();
 			FormatController.install(new FormatController());
@@ -210,82 +209,24 @@ public class FreeplaneGUIStarter implements FreeplaneStarter {
 			controller.addAction(new NextNodeAction(Direction.BACK));
 			controller.addAction(new NextNodeAction(Direction.FORWARD_N_FOLD));
 			controller.addAction(new NextNodeAction(Direction.BACK_N_FOLD));
-			controller.addAction(new NextPresentationItemAction());
+			controller.addAction(NextPresentationItemAction.createFoldingAction());
+			controller.addAction(NextPresentationItemAction.createNotFoldingAction());
 			controller.addAction(new ShowSelectionAsRectangleAction());
 			controller.addAction(new ViewLayoutTypeAction(MapViewLayout.OUTLINE));
 			FilterController.getCurrentFilterController().getConditionFactory().addConditionController(70,
 			    new LogicalStyleFilterController());
 			MapController.install();
-
 			NodeHistory.install(controller);
+			final FreeplaneSurveyProperties freeplaneSurveyProperties = new FreeplaneSurveyProperties();
+			if(freeplaneSurveyProperties.mayAskUserToFillSurveys()) {
+				controller.addApplicationLifecycleListener(new SurveyStarter(freeplaneSurveyProperties, new SurveyRunner(freeplaneSurveyProperties), Math.random()));
+			}
 			return controller;
 		}
 		catch (final Exception e) {
 			LogUtils.severe(e);
 			throw new RuntimeException(e);
 		}
-	}
-
-	private void initIcons(ResourceController resourceController) {
-        resourceController.setDefaultProperty("ResetNodeLocationAction.icon", "/images/ribbons/nodes/NodesSettings-ResetPosition.png");
-        resourceController.setDefaultProperty("SetBooleanPropertyAction.edit_on_double_click.icon", "/images/ribbons/nodes/Nodes-EditOnDblClick.png");
-        resourceController.setDefaultProperty("NewFreeNodeAction.icon", "/images/ribbons/nodes/Nodes-NewFreenode.png");
-        resourceController.setDefaultProperty("FreeNodeAction.icon", "/images/ribbons/nodes/NodesSettings-Freenode.png");
-        resourceController.setDefaultProperty("NewSummaryAction.icon", "/images/ribbons/nodes/Nodes-NewSummaryNode.png");
-        resourceController.setDefaultProperty("ChangeNodeLevelLeftsAction.icon", "/images/ribbons/nodes/Nodes-MoveLeft.png");
-        resourceController.setDefaultProperty("ChangeNodeLevelRightsAction.icon", "/images/ribbons/nodes/nodes-MoveRight.png");
-        resourceController.setDefaultProperty("NodeUpAction.icon", "/images/ribbons/nodes/nodes-MoveUp.png");
-        resourceController.setDefaultProperty("NodeDownAction.icon", "/images/ribbons/nodes/nodes-MoveDown.png");
-        resourceController.setDefaultProperty("AlwaysUnfoldedNodeAction.icon", "/images/ribbons/nodes/nodes-AlwaysUnfolded.png");
-
-        resourceController.setDefaultProperty("ToggleFoldedAction.icon", "/images/ribbons/navigate/navigate-NodesUn-fold.png");
-
-        resourceController.setDefaultProperty("LatexEditLatexAction.icon", "/images/ribbons/resources/Resources-LaTeXFormulaEdit.png");
-        resourceController.setDefaultProperty("LatexDeleteLatexAction.icon", "/images/ribbons/resources/Resources-LaTeXFormulaRemove.png");
-        resourceController.setDefaultProperty("ExternalImageAddAction.icon", "/images/ribbons/resources/Resources-AddImage.png");
-
-        resourceController.setDefaultProperty("freeplaneAddOnLocationAction.icon", "/images/ribbons/tools/ToolsAndSettings-DocearAddOns.png");
-        resourceController.setDefaultProperty("SetAcceleratorOnNextClickAction.icon", "/images/ribbons/tools/Tools-AssignHotkey.png");
-        resourceController.setDefaultProperty("OpenMapsAddLocation.icon", "/images/ribbons/tools/tools-AddOpenMaps.png");
-        resourceController.setDefaultProperty("OpenMapsRemoveLocation.icon", "/images/ribbons/tools/tools-RemoveOpenMaps.png");
-        resourceController.setDefaultProperty("OpenMapsViewLocation.icon", "/images/ribbons/tools/tools-ViewOpenMaps.png");
-        resourceController.setDefaultProperty("formula.menuname.icon", "/images/ribbons/tools/tools-formulas.png");
-        resourceController.setDefaultProperty("menu_encryption.icon", "/images/ribbons/tools/tools-PasswordProtection.png");
-        resourceController.setDefaultProperty("menu_time.icon", "/images/ribbons/tools/tools-TimeManagement.png");
-        resourceController.setDefaultProperty("scripting.icon", "/images/ribbons/tools/tools-Scripting.png");
-
-        resourceController.setDefaultProperty("attribute_options.icon", "/images/ribbons/view/view-AttributeOptions.png");
-        resourceController.setDefaultProperty("ShowHideNoteAction.icon", "/images/ribbons/view/view-showNotePanel.png");
-        resourceController.setDefaultProperty("ToggleDetailsAction.icon", "/images/ribbons/view/view-hideNoteDetails.png");
-        resourceController.setDefaultProperty("note_window_location.icon", "/images/ribbons/view/view-NotePanelPosition.png");
-        resourceController.setDefaultProperty("menu_noteView.icon", "/images/ribbons/view/view-NotesSettings.png");
-        resourceController.setDefaultProperty("SetBooleanPropertyAction.highlight_formulas.icon", "/images/ribbons/view/view-HighlightFormulas.png");
-        resourceController.setDefaultProperty("SetBooleanPropertyAction.show_node_tooltips.icon", "/images/ribbons/view/view-DisplayTooltips.png");
-        resourceController.setDefaultProperty("SetBooleanPropertyAction.show_styles_in_tooltip.icon", "/images/ribbons/view/view-displayNodeStylesTooltips.png");
-        resourceController.setDefaultProperty("ToggleFBarAction.icon", "/images/ribbons/view/view-FBar.png");
-        resourceController.setDefaultProperty("ToggleStatusAction.icon", "/images/ribbons/view/view-Statusline.png");
-        resourceController.setDefaultProperty("ToggleScrollbarsAction.icon", "/images/ribbons/view/view-Scrollbars.png");
-        resourceController.setDefaultProperty("ToggleLeftToolbarAction.icon", "/images/ribbons/view/view-IconToolbar.png");
-        resourceController.setDefaultProperty("ToggleFullScreenAction.icon", "/images/ribbons/view/view-FullScreen.png");
-        resourceController.setDefaultProperty("ToggleRibbonAction.icon", "/images/ribbons/view/view-MinimizeRibbon.png");
-        resourceController.setDefaultProperty("SetBooleanPropertyAction.presentation_mode.icon", "/images/ribbons/view/view-PresentationMode.png");
-
-
-        resourceController.setDefaultProperty("OpenFreeplaneSiteAction.icon", "/images/ribbons/help/help-Homepage.png");
-        resourceController.setDefaultProperty("AboutAction.icon", "/images/ribbons/help/help-about.png");
-        resourceController.setDefaultProperty("AskForHelp.icon", "/images/ribbons/help/help-ask4help.png");
-        resourceController.setDefaultProperty("RequestFeatureAction.icon", "/images/ribbons/help/help-requestFeature.png");
-        resourceController.setDefaultProperty("ReportBugAction.icon", "/images/ribbons/help/help-bugReport.png");
-        resourceController.setDefaultProperty("HotKeyInfoAction.icon", "/images/ribbons/help/help-keyReference.png");
-        resourceController.setDefaultProperty("UpdateCheckAction.icon", "/images/ribbons/help/help-check4updates.png");
-        resourceController.setDefaultProperty("OpenUserDirAction.icon", "/images/ribbons/help/help-openUserDirectory.png");
-        resourceController.setDefaultProperty("GettingStartedAction.icon", "/images/ribbons/help/help-tutorial.png");
-
-        resourceController.setDefaultProperty("OpenLogsFolderAction.icon", "/images/ribbons/help/help-showSystemLog.png");
-        resourceController.setDefaultProperty("ManualAction.icon", "/images/ribbons/help/help-Manual.png");
-        resourceController.setDefaultProperty("ContactAction.icon", "/images/ribbons/help/help-contact.png");
-        resourceController.setDefaultProperty("FAQAction.icon", "/images/ribbons/help/help-faq.png");
-
 	}
 
 	public void createModeControllers(final Controller controller) {
@@ -297,15 +238,14 @@ public class FreeplaneGUIStarter implements FreeplaneStarter {
 		mindMapModeController.addUiBuilder(Phase.ACTIONS, "filterConditions", FilterController
 		    .getController(controller)
 		    .getMenuBuilder(), new ChildActionEntryRemover(controller));
-		BModeControllerFactory.createModeController();
 		FModeControllerFactory.createModeController();
     }
 
 	public void buildMenus(final Controller controller, final Set<String> plugins) {
 		LoadAcceleratorPresetsAction.install(controller.getModeController(MModeController.MODENAME));
 	    buildMenus(controller, plugins, MModeController.MODENAME, "/xml/mindmapmodemenu.xml");
-	    buildMenus(controller, plugins, BModeController.MODENAME, "/xml/browsemodemenu.xml");
 	    buildMenus(controller, plugins, FModeController.MODENAME, "/xml/filemodemenu.xml");
+	    ResourceController.getResourceController().getAcceleratorManager().loadAcceleratorPresets();
     }
 
 	private void buildMenus(final Controller controller, final Set<String> plugins, String mode, String xml) {
@@ -336,7 +276,7 @@ public class FreeplaneGUIStarter implements FreeplaneStarter {
 				if (extendedState != frame.getExtendedState()) {
 					frame.setExtendedState(extendedState);
 				}
-				loadMaps(options.getFilesToOpenAsArray());
+				loadMaps(CommandLineParser.parse(args, false).getFilesToOpenAsArray());
 				focusCurrentView();
 				contentPane.setVisible(true);
 				frame.toFront();
@@ -348,8 +288,16 @@ public class FreeplaneGUIStarter implements FreeplaneStarter {
                 catch (InterruptedException e) {
                     e.printStackTrace();
                 }
-                fireStartupFinished();
-                MenuUtils.executeMenuItems(options.getMenuItemsToExecute());
+		        
+		        UITools.executeWhenNodeHasFocus(new Runnable() {
+					@Override
+					public void run() {
+		                fireStartupFinished();
+		                MenuUtils.executeMenuItems(options.getMenuItemsToExecute());
+		                if(options.shouldStopAfterLaunch())
+		                	System.exit(0);
+					}
+				});
             }
 
 			private void focusCurrentView() {
@@ -361,10 +309,8 @@ public class FreeplaneGUIStarter implements FreeplaneStarter {
 		});
 	}
 
-	protected void fireStartupFinished() {
-		for (ApplicationLifecycleListener listener : Controller.getCurrentController().getApplicationLifecycleListeners()) {
-			listener.onStartupFinished();
-		}
+	private void fireStartupFinished() {
+		Controller.getCurrentController().fireStartupFinished();
 	}
 
 	private void loadMaps( final String[] args) {

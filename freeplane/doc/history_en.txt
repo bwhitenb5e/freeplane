@@ -1,15 +1,119 @@
 ===============================
+1.6.2
+===============================
+Multi-columns icons tool bar
+"Close all maps" and "close all other maps" actions added to file menu
+Options to hide icons and connectors
+Option note icon in notes tool-tip
+Aligning current node on the left side, on the right side or on the center, hot keys alt+W (west), alt+E (east), alt+C (center)
+Option to move aligned node smoothly
+Option to define spotlight background color
+
+===============================
+1.6.1
+===============================
+SVG icons for map and UI
+Configurable map icon size
+Configurable UI icon size
+Paint clone node markers only on selected nodes
+Image in node without black border (no border)
+Option to hide connectors when filtering hides other connector end
+Independent presentation mode for different map views
+Configurable clone marks
+Configurable standard cloud shape
+Action for showing next presentation item without folding other nodes
+Improved presentation panel
+Optional presentation automatics "processesUpDownKeys", "switchToFullScreen", "switchToPresentationMode"
+Increased sensitive area for image scaling
+No special treatment for white space nodes when content is copied to text
+Option to paste images from files
+Dragged and dropped files are copied into directory mindmap_files/ if CONTROL key is pressed
+
+===============================
 1.6.0
 ===============================
+Configurable node border widths
+Configurable node border colors
+Configurable edge line type
+Configurable node border line type
+Configurable standard for connector arrows
+Configurable standard for connector line types 
+Presentations
+Export for java web start
+Editor dialog for automatic edge colors
+
+===============================
+1.5.20
+===============================
+Bug fixes
+Export for java web start
+Security fix related to scripts and formulas
+Security fix related to loading of mind map files
+Change short cuts for MacOS to avoid collisions
+
+===============================
+1.5.18
+===============================
+Bug fixes
+
+===============================
+1.5.17
+===============================
+Freeplane Survey Runner
+Bug fixes
+
+===============================
+1.5.16
+===============================
+Keep last selected exporter in dialog drop-down box
 User translations
 Dialog to choose template when new map is created
 
 ===============================
-1.5.9
+1.5.15
+===============================
+Bug fixes
+
+===============================
+1.5.14
+===============================
+Fix latex export and support latex in style editor
+Fix default hot keys for NewSummaryAction and NewParentAction on mac
+Check for non negative quantity values for minimalDistanceBetweenChildren, minWidth and maxWidth
+Improve bug report generator
+Command line interface improvements
+
+===============================
+1.5.13
+===============================
+Support High Density Monitors by scaling UI elements
+New SimplyHTML actions and short cuts for color and font size changes
+Improve posisioning of inline editing field for left side nodes
+Performance optimizations for filtered maps
+Performance optimizations for huge maps
+
+===============================
+1.5.12
+===============================
+Improvements in launcher for Mac OS
+Bug fixes
+
+===============================
+1.5.11
+===============================
+Restore old default map template
+
+===============================
+1.5.10
 ===============================
 Stable release
+
+===============================
+1.5.9
+===============================
 User preferences can be saved and loaded from preferences dialog
 Drag and drop of *.freeplaneoptions file into the preferences dialog
+Look and feel jar can be put into user lib directory and class name entered into the preferences
 
 ===============================
 1.5.8

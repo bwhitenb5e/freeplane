@@ -48,9 +48,7 @@ import org.freeplane.core.util.HtmlUtils;
 import org.freeplane.core.util.LogUtils;
 import org.freeplane.core.util.TextUtils;
 import org.freeplane.features.map.NodeModel;
-import org.freeplane.features.mode.Controller;
-import org.freeplane.features.mode.ModeController;
-import org.freeplane.features.nodestyle.NodeStyleModel.TextAlign;
+import org.freeplane.features.nodestyle.NodeStyleModel.HorizontalTextAlignment;
 import org.freeplane.features.spellchecker.mindmapmode.SpellCheckerController;
 
 import com.lightdev.app.shtm.SHTMLEditorPane;
@@ -85,8 +83,7 @@ public class EditNodeWYSIWYG extends EditNodeBase {
 			final SplitAction splitAction = new SplitAction();
 			splitButton.addActionListener(splitAction);
 			UITools.addKeyActionToDialog(getDialog(), submitAction, "alt ENTER", "submit");
-			final ModeController modeController = Controller.getCurrentModeController();
-			final KeyStroke splitNodeHotKey = modeController.getUserInputListenerFactory().getAcceleratorManager().getAccelerator("SplitNode");
+			final KeyStroke splitNodeHotKey = ResourceController.getResourceController().getAcceleratorManager().getAccelerator("SplitNode");
 			if(splitNodeHotKey != null)
 				UITools.addKeyActionToDialog(getDialog(), splitAction, splitNodeHotKey.toString(), "split");
 			final JPanel buttonPane = new JPanel();
@@ -196,7 +193,7 @@ public class EditNodeWYSIWYG extends EditNodeBase {
 	private Color textColor = Color.BLACK;
 	private Dimension preferredSize = PREFERRED_SIZE;
 
-	private int horizontalAlignment = TextAlign.DEFAULT.swingConstant;
+	private int horizontalAlignment = HorizontalTextAlignment.DEFAULT.swingConstant;
 
 	public String getTitle() {
     	return title;
@@ -246,7 +243,7 @@ public class EditNodeWYSIWYG extends EditNodeBase {
 			final StringBuilder ruleBuilder = new StringBuilder(100);
 			ruleBuilder.append("body {");
 			ruleBuilder.append(new CssRuleBuilder()
-					.withFont(font, UITools.FONT_SCALE_FACTOR)
+					.withCSSFont(font, UITools.FONT_SCALE_FACTOR)
 					.withColor(textColor)
 					.withBackground(getBackground())
 					.withAlignment(horizontalAlignment));

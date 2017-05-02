@@ -21,7 +21,6 @@ package org.freeplane.main.mindmapmode;
 
 import java.awt.Component;
 import java.awt.Container;
-import java.awt.Dimension;
 import java.awt.event.KeyEvent;
 
 import javax.swing.Box;
@@ -49,7 +48,6 @@ import org.freeplane.core.ui.menubuilders.generic.EntryVisitor;
 import org.freeplane.core.ui.menubuilders.generic.PhaseProcessor.Phase;
 import org.freeplane.core.ui.menubuilders.menu.ComponentProvider;
 import org.freeplane.core.ui.menubuilders.menu.JToolbarComponentBuilder;
-import org.freeplane.core.ui.textchanger.TextChangeHotKeyAction;
 import org.freeplane.core.util.TextUtils;
 import org.freeplane.features.attribute.AttributeController;
 import org.freeplane.features.attribute.mindmapmode.AddAttributeAction;
@@ -96,6 +94,7 @@ import org.freeplane.features.nodestyle.mindmapmode.MNodeStyleController;
 import org.freeplane.features.nodestyle.mindmapmode.RevisionPlugin;
 import org.freeplane.features.note.NoteController;
 import org.freeplane.features.note.mindmapmode.MNoteController;
+import org.freeplane.features.presentations.mindmapmode.PresentationController;
 import org.freeplane.features.spellchecker.mindmapmode.SpellCheckerController;
 import org.freeplane.features.styles.AutomaticLayoutController;
 import org.freeplane.features.styles.LogicalStyleController;
@@ -103,7 +102,7 @@ import org.freeplane.features.styles.MapStyle;
 import org.freeplane.features.styles.mindmapmode.MLogicalStyleController;
 import org.freeplane.features.styles.mindmapmode.MUIFactory;
 import org.freeplane.features.styles.mindmapmode.ShowFormatPanelAction;
-import org.freeplane.features.styles.mindmapmode.StyleEditorPanel;
+import org.freeplane.features.styles.mindmapmode.styleeditorpanel.StyleEditorPanel;
 import org.freeplane.features.text.TextController;
 import org.freeplane.features.text.mindmapmode.MTextController;
 import org.freeplane.features.text.mindmapmode.SortNodes;
@@ -181,6 +180,7 @@ public class MModeControllerFactory {
 		modeController.addExtension(ReminderHook.class, new ReminderHook(modeController));
 		new AutomaticEdgeColorHook();
 		new ViewerController();
+		PresentationController.install(modeController);
 		modeController.addAction(new AddAttributeAction());
 		modeController.addAction(new RemoveFirstAttributeAction());
 		modeController.addAction(new RemoveLastAttributeAction());
@@ -201,7 +201,6 @@ public class MModeControllerFactory {
 		NodeHistory.install(modeController);
 		modeController.addAction(new ImportXmlFile());
 		modeController.addAction(new ImportMindmanagerFiles());
-		modeController.addAction(new TextChangeHotKeyAction());
 	}
 
 	private MModeController createModeControllerImpl() {
@@ -229,7 +228,7 @@ public class MModeControllerFactory {
 		UrlManager.install(fileManager);
 		MMapIO.install(modeController);
 		controller.getMapViewManager().addMapViewChangeListener(fileManager);
-		IconController.install(new MIconController(modeController));
+		new MIconController(modeController).install(modeController);
 		new ProgressFactory().installActions(modeController);
 		final MapController mapController = modeController.getMapController();
 		EdgeController.install(new MEdgeController(modeController));
@@ -237,7 +236,7 @@ public class MModeControllerFactory {
 		NoteController.install(new MNoteController(modeController));
 		userInputListenerFactory.setMapMouseListener(new MMapMouseListener());
 		final MTextController textController = new MTextController(modeController);
-		TextController.install(textController);
+		textController.install(modeController);
 		LinkController.install(new MLinkController(modeController));
 		NodeStyleController.install(new MNodeStyleController(modeController));
 		ClipboardController.install(new MClipboardController());
@@ -277,7 +276,7 @@ public class MModeControllerFactory {
 		userInputListenerFactory.setKeyEventProcessor(new IKeyStrokeProcessor() {
 			@Override
 			public boolean processKeyBinding(KeyStroke ks, KeyEvent e) {
-				return userInputListenerFactory.getAcceleratorManager().processKeyBinding(ks, e) || fButtonToolBar.processKeyBinding(ks, e);
+				return ResourceController.getResourceController().getAcceleratorManager().processKeyBinding(ks, e) || fButtonToolBar.processKeyBinding(ks, e);
 			}
 		});
 		controller.addAction(new ToggleToolbarAction("ToggleFBarAction", "/fbuttons"));
@@ -285,7 +284,7 @@ public class MModeControllerFactory {
 		modeController.addAction(new SetAcceleratorOnNextClickAction());
 		modeController.addAction(new ShowNotesInMapAction());
 		//userInputListenerFactory.getMenuBuilder().setAcceleratorChangeListener(fButtonToolBar);
-		userInputListenerFactory.getAcceleratorManager().addAcceleratorChangeListener(modeController, fButtonToolBar);
+		ResourceController.getResourceController().getAcceleratorManager().addAcceleratorChangeListener(modeController, fButtonToolBar);
 		userInputListenerFactory.addToolBar("/icon_toolbar", ViewController.LEFT, ((MIconController) IconController
 		    .getController()).getIconToolBarScrollPane());
 		modeController.addAction(new ToggleToolbarAction("ToggleLeftToolbarAction", "/icon_toolbar"));
@@ -304,9 +303,6 @@ public class MModeControllerFactory {
 			    @Override
 			    public Component createComponent(Entry entry) {
 				    final Container fontBox = uiFactory.createFontBox();
-				    final Dimension preferredSize = fontBox.getPreferredSize();
-				    preferredSize.width = 90;
-				    fontBox.setPreferredSize(preferredSize);
 				    return fontBox;
 			    }
 		    }), EntryVisitor.EMTPY);

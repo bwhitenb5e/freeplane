@@ -63,9 +63,16 @@ public class Launcher {
 
 	public static void main(String[] args) {
 		fixX11AppName();
+		workAroundForDataFlavorComparator_JDK8130242();
 		new Launcher().launch(args);
 	}
 
+
+	private static void workAroundForDataFlavorComparator_JDK8130242() {
+		final String javaVersion = System.getProperty("java.version");
+		if(javaVersion.startsWith("1.7.") || javaVersion.startsWith("1.8."))
+			System.setProperty("java.util.Arrays.useLegacyMergeSort", "true");
+	}
 
 	private void launch(String[] args) {
 		setDefines();
@@ -76,11 +83,23 @@ public class Launcher {
 	private void setDefines() {
 		setDefine("org.knopflerfish.framework.readonly", "true");
 		setDefine("org.knopflerfish.gosg.jars", "reference:file:" + getAbsolutePath("core") + '/');
+		setDefine("org.freeplane.user.dir", System.getProperty("user.dir"));
 		setDefine("org.freeplane.basedirectory", getAbsolutePath());
+		System.setProperty("user.dir", getAbsolutePath());
 		setDefineIfNeeded("org.freeplane.globalresourcedir", getAbsolutePath("resources"));
 		setDefineIfNeeded("java.security.policy", getAbsolutePath("freeplane.policy"));
 		setDefine("org.osgi.framework.storage", getAbsolutePath("fwdir"));
-		System.setSecurityManager(new SecurityManager());
+		System.setSecurityManager(new SecurityManager(){
+
+			@Override
+			public void checkConnect(String pHost, int pPort, Object pContext) {
+				if(pContext != null)
+					super.checkConnect(pHost, pPort, pContext);
+				else
+					super.checkConnect(pHost, pPort);
+			}
+			
+		});
 	}
 
 	private void setDefineIfNeeded(String name, String value) {

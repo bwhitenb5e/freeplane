@@ -18,6 +18,7 @@ import java.util.Map.Entry;
 import javax.swing.JOptionPane;
 
 import org.apache.commons.lang.StringEscapeUtils;
+import org.freeplane.core.io.xml.XMLLocalParserFactory;
 import org.freeplane.core.resources.ResourceController;
 import org.freeplane.core.ui.components.UITools;
 import org.freeplane.core.util.FileUtils;
@@ -32,7 +33,6 @@ import org.freeplane.n3.nanoxml.IXMLParser;
 import org.freeplane.n3.nanoxml.IXMLReader;
 import org.freeplane.n3.nanoxml.StdXMLReader;
 import org.freeplane.n3.nanoxml.XMLElement;
-import org.freeplane.n3.nanoxml.XMLParserFactory;
 
 public class AddOnsController {
 	private static final String ADDONS_DIR = "addons";
@@ -66,7 +66,7 @@ public class AddOnsController {
 				return name.endsWith(".plugin.xml");
 			}
 		});
-		final IXMLParser parser = XMLParserFactory.createDefaultXMLParser();
+		final IXMLParser parser = XMLLocalParserFactory.createLocalXMLParser();
 		for (File file : addonXmlFiles) {
 			BufferedInputStream inputStream = null;
 			try {
@@ -99,14 +99,14 @@ public class AddOnsController {
 		final ResourceController resourceController = ResourceController.getResourceController();
 		if (addOn.getDefaultProperties() != null)
 			resourceController.addDefaults(addOn.getDefaultProperties());
+		if (addOn.getTranslations() != null)
+			registerAddOnResources(addOn, resourceController);
 		if (addOn.getPreferencesXml() != null) {
 			final ModeController modeController = Controller.getCurrentModeController();
 			if (modeController instanceof MModeController) {
 				((MModeController)modeController).getOptionPanelBuilder().load(new StringReader(addOn.getPreferencesXml()));
 			}
 		}
-		if (addOn.getTranslations() != null)
-			registerAddOnResources(addOn, resourceController);
 	}
 
 	/** make the translations of this add-on known system-wide.

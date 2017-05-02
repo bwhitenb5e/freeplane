@@ -7,63 +7,51 @@ import java.util.List;
 import org.freeplane.core.util.Compat;
 
 class CommandLineParser {
-    static final String QUIT_MENU_ITEM_KEY = "MB_QuitAction";
-
-    public static class Options {
-        private static final String HELP_MESSAGE = "Use:\n\tfreeplane [options] [file1 [file2 ...]]" //
-                + "\n -X<menukey>: execute menu item with key <menukey>. Use devtools add-on to find the menu keys" //
-                + "\n -S: stop after executing menu items" //
-                + "\n -N: set the 'nonInteractive' system property to 'true'" //
-                + "\n -U<userdir>: set the freeplane user config directory (default: "
+    static class Options {
+        private static final String HELP_MESSAGE = //
+                "\nUsage:\n\tfreeplane.bat [options] [file1 [file2 ...]]\n" //
+                + "\n -X<menukey>   : execute menu item with key <menukey>." //
+                + "\n                 hint: use devtools add-on to find appropriate menu keys" //
+                + "\n -S            : stop after executing menu items" //
+                + "\n -N            : set the 'nonInteractive' system property to 'true'" //
+                + "\n -U<userdir>   : set the freeplane user config directory (default: "
                 + Compat.getDefaultFreeplaneUserDirectory() + ")" //
-                + "\n -h|--help: print this help";
+                + "\n -h , --help   : print this help text";
         private List<String> filesToOpen = new ArrayList<String>();
         private List<String> menuItemsToExecute = new ArrayList<String>();
         private boolean stopAfterLaunch;
         private boolean nonInteractive;
         private boolean helpRequested = false;
 
-        public void setFilesToOpen(final String[] filesToOpen) {
+        private void setFilesToOpen(final String[] filesToOpen) {
             this.filesToOpen = Arrays.asList(filesToOpen);
         }
 
-        public void setMenuItemsToExecute(final String[] menuItemsToExecute) {
-            this.menuItemsToExecute = Arrays.asList(menuItemsToExecute);
-        }
-
-        public boolean isStopAfterLaunch() {
+        boolean shouldStopAfterLaunch() {
             return stopAfterLaunch;
         }
 
-        public void setStopAfterLaunch(boolean stopAfterLaunch) {
+        private void setStopAfterLaunch(boolean stopAfterLaunch) {
             this.stopAfterLaunch = stopAfterLaunch;
         }
 
-        public List<String> getFilesToOpen() {
-            return filesToOpen;
-        }
-
-        public String[] getFilesToOpenAsArray() {
+        String[] getFilesToOpenAsArray() {
             return filesToOpen.toArray(new String[filesToOpen.size()]);
         }
 
-        public List<String> getMenuItemsToExecute() {
+        List<String> getMenuItemsToExecute() {
             return menuItemsToExecute;
         }
 
-        public String[] getMenuItemsToExecuteAsArray() {
-            return menuItemsToExecute.toArray(new String[menuItemsToExecute.size()]);
-        }
-
-        public boolean hasMenuItemsToExecute() {
+        boolean hasMenuItemsToExecute() {
             return !menuItemsToExecute.isEmpty();
         }
 
-        public void addFilesToOpen(String file) {
+        private void addFilesToOpen(String file) {
             filesToOpen.add(file);
         }
 
-        public void addMenuItemToExecute(String item) {
+        private void addMenuItemToExecute(String item) {
             menuItemsToExecute.add(item);
         }
 
@@ -72,19 +60,19 @@ class CommandLineParser {
          *   boolean nonInteractive = Boolean.parseBoolean(System.getProperty("nonInteractive"));
          * </pre>
          */
-        public void setNonInteractive(boolean b) {
+        private void setNonInteractive(boolean b) {
             nonInteractive = b;
         }
 
-        public boolean isNonInteractive() {
+        boolean isNonInteractive() {
             return nonInteractive;
         }
 
-        public boolean isHelpRequested() {
+        private boolean isHelpRequested() {
             return helpRequested;
         }
 
-        public void setHelpRequested(boolean helpRequested) {
+        private void setHelpRequested(boolean helpRequested) {
             this.helpRequested = helpRequested;
         }
 
@@ -94,12 +82,12 @@ class CommandLineParser {
                     + stopAfterLaunch + ", nonInteractive: " + nonInteractive + ")";
         }
 
-        public String getHelpMessage() {
+        private String getHelpMessage() {
             return HELP_MESSAGE;
         }
     }
 
-    public static CommandLineParser.Options parse(String[] args, boolean firstRun) {
+    static CommandLineParser.Options parse(String[] args, boolean firstRun) {
         CommandLineParser.Options result = new CommandLineParser.Options();
         if (args == null || args.length == 0 || !args[0].startsWith("-")) {
             result.setFilesToOpen(args);
@@ -166,10 +154,9 @@ class CommandLineParser {
         }
         for (; i != args.length; ++i)
             result.addFilesToOpen(args[i]);
-        if (result.stopAfterLaunch && !result.menuItemsToExecute.contains(QUIT_MENU_ITEM_KEY))
-            result.addMenuItemToExecute(QUIT_MENU_ITEM_KEY);
         if (result.isHelpRequested() && firstRun) {
             System.out.println(result.getHelpMessage());
+            System.exit(0);
         }
         return result;
     }

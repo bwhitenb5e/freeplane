@@ -19,15 +19,14 @@
  */
 package org.freeplane.view.swing.map.edge;
 
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Stroke;
 
-import org.freeplane.features.edge.EdgeStyle;
 import org.freeplane.features.nodestyle.NodeStyleModel;
+import org.freeplane.view.swing.map.MainView;
 import org.freeplane.view.swing.map.NodeView;
 
 /**
@@ -71,6 +70,11 @@ public class OutlineEdgeView extends EdgeView {
 
 	@Override
 	protected Stroke getStroke() {
-		return new BasicStroke(getTarget().getMainView().getZoomedEdgeWidth());
+		final NodeView nodeView = getTarget();
+		final MainView mainView = nodeView.getMainView();
+		final float nodeLineWidth = mainView.getUnzoomedEdgeWidth();
+		final float zoomedLineWidth = nodeView.getMap().getZoom() * nodeLineWidth;
+		float strokeWidth =  Math.max(zoomedLineWidth, 1);
+		return getStroke(strokeWidth);
 	}
 }

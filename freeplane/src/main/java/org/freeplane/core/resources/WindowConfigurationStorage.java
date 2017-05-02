@@ -1,14 +1,12 @@
 package org.freeplane.core.resources;
 
-import java.awt.Dimension;
-import java.awt.Frame;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
 
 import javax.swing.JDialog;
-import javax.swing.JOptionPane;
 
+import org.freeplane.core.io.xml.XMLLocalParserFactory;
 import org.freeplane.core.ui.components.UITools;
 import org.freeplane.core.util.LogUtils;
 import org.freeplane.n3.nanoxml.IXMLParser;
@@ -16,7 +14,6 @@ import org.freeplane.n3.nanoxml.IXMLReader;
 import org.freeplane.n3.nanoxml.StdXMLReader;
 import org.freeplane.n3.nanoxml.XMLElement;
 import org.freeplane.n3.nanoxml.XMLException;
-import org.freeplane.n3.nanoxml.XMLParserFactory;
 import org.freeplane.n3.nanoxml.XMLWriter;
 
 public class WindowConfigurationStorage {
@@ -107,7 +104,7 @@ public class WindowConfigurationStorage {
 	}
 	protected XMLElement unmarschall(final String marshalled, final JDialog dialog) {
 		if (marshalled != null) {
-			final IXMLParser parser = XMLParserFactory.createDefaultXMLParser();
+			final IXMLParser parser = XMLLocalParserFactory.createLocalXMLParser();
 			final IXMLReader xmlReader = new StdXMLReader(new StringReader(marshalled));
 			parser.setReader(xmlReader);
 			try {
@@ -128,11 +125,7 @@ public class WindowConfigurationStorage {
 				LogUtils.severe(e);
 			}
 		}
-		final Frame rootFrame = JOptionPane.getFrameForComponent(dialog);
-		final Dimension prefSize = rootFrame.getSize();
-		prefSize.width = prefSize.width * 3 / 4;
-		prefSize.height = prefSize.height * 3 / 4;
-		dialog.setSize(prefSize);
+		UITools.setBounds(dialog, -1, -1, -1, -1);
 		return null;
 	}
 }

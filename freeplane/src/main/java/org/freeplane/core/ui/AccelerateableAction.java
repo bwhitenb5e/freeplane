@@ -28,6 +28,7 @@ import java.beans.PropertyChangeListener;
 import javax.swing.JDialog;
 import javax.swing.KeyStroke;
 
+import org.freeplane.core.resources.ResourceController;
 import org.freeplane.core.ui.components.IKeyBindingManager;
 import org.freeplane.core.ui.components.UITools;
 import org.freeplane.core.util.TextUtils;
@@ -47,7 +48,7 @@ public class AccelerateableAction implements IFreeplaneAction {
 		return setAcceleratorOnNextClickActionDialog != null;
 	}
 
-	private static final String SET_ACCELERATOR_ON_NEXT_CLICK_ACTION = "set_accelerator_on_next_click_action";
+	private static final String SET_ACCELERATOR_ON_NEXT_CLICK_ACTION = "set_accelerator_on_next_click_helpmessage";
 
 	static void setNewAcceleratorOnNextClick(KeyStroke accelerator) {
 		if (AccelerateableAction.isNewAcceleratorOnNextClickEnabled()) {
@@ -147,6 +148,6 @@ public class AccelerateableAction implements IFreeplaneAction {
 	}
 
 	private ActionAcceleratorManager getAcceleratorManager() {
-		return Controller.getCurrentModeController().getUserInputListenerFactory().getAcceleratorManager();
+		return ResourceController.getResourceController().getAcceleratorManager();
 	}
 }

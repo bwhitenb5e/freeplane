@@ -44,7 +44,7 @@
 			</Entry>
 		</Entry>
 		<Entry name="view">
-			<Entry name="toolbars">
+			<Entry name="controls">
 				<Entry name="ToggleMenubarAction" builder="MB_ToggleMenubarAction" />
 				<Entry name="ToggleToolbarAction" />
 				<Entry name="ToggleLeftToolbarAction" />
@@ -56,6 +56,10 @@
 			<Entry name="menu_viewmode">
 				<Entry name="ViewLayoutTypeAction.OUTLINE" />
 				<Entry name="ShowSelectionAsRectangleAction" />
+				<Entry name="SetBooleanPropertyAction.show_icons" />
+				<Entry name="SetBooleanPropertyAction.show_connectors" />
+				<Entry name="SetBooleanPropertyAction.hide_single_end_connectors" />
+				<Entry name="SetBooleanPropertyAction.show_note_icon_in_tooltip" />
 			</Entry>
 			<Entry name="menu_hoverView">
 				<Entry accelerator="alt F2" name="ToggleDetailsAction" />
@@ -129,13 +133,14 @@
 		<Entry name="extras">
 			<Entry name="SetAcceleratorOnNextClickAction" />
 		</Entry>
+		<Entry name="help">
+			<Entry name="AboutAction" builder="removeOnMac"/>
+		</Entry>
 	</Entry>
 	<Entry name="map_popup">
 		<Entry name="ToggleMenubarAction" builder="MP_ToggleMenubarAction" />
 		<Entry name="ToggleToolbarAction" />
 		<Entry name="ToggleLeftToolbarAction" />
-		<Entry name="ViewLayoutTypeAction.OUTLINE" />
-		<Entry name="CenterSelectedNodeAction" />
 	</Entry>
 	<Entry name="node_popup"  builder="node_popup">
 		<Entry accelerator="alt shift C" name="FormatCopy" />

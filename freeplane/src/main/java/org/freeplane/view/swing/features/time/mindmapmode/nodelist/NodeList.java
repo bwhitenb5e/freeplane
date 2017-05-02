@@ -19,6 +19,7 @@
  */
 package org.freeplane.view.swing.features.time.mindmapmode.nodelist;
 
+import java.awt.Component;
 import java.awt.Container;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -33,8 +34,10 @@ import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.EventListener;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -53,11 +56,10 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.Timer;
 import javax.swing.WindowConstants;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.ListSelectionEvent;
@@ -71,6 +73,7 @@ import org.freeplane.core.resources.ResourceController;
 import org.freeplane.core.resources.WindowConfigurationStorage;
 import org.freeplane.core.ui.UIBuilder;
 import org.freeplane.core.ui.components.BlindIcon;
+import org.freeplane.core.ui.components.JAutoScrollBarPane;
 import org.freeplane.core.ui.components.JComboBoxWithBorder;
 import org.freeplane.core.ui.components.UITools;
 import org.freeplane.core.util.DelayedRunner;
@@ -90,6 +93,7 @@ import org.freeplane.features.map.NodeMoveEvent;
 import org.freeplane.features.mode.Controller;
 import org.freeplane.features.mode.ModeController;
 import org.freeplane.features.mode.mindmapmode.MModeController;
+import org.freeplane.features.text.DetailTextModel;
 import org.freeplane.features.text.TextController;
 import org.freeplane.features.ui.IMapViewManager;
 import org.freeplane.features.url.mindmapmode.MFileManager;
@@ -137,7 +141,8 @@ public class NodeList {
 	    }
 
 		public void nodeChanged(NodeChangeEvent event) {
-			runner.runLater();
+			if(hasTableFieldValueChanged(event.getProperty()))
+				runner.runLater();
         }
 
 		public void afterMapChange(MapModel oldMap, MapModel newMap) {
@@ -323,8 +328,8 @@ public class NodeList {
 //	private static final String PLUGINS_TIME_MANAGEMENT_XML_SELECT = "plugins/TimeManagement.xml_Select";
 	private static final String PLUGINS_TIME_MANAGEMENT_XML_WINDOW_TITLE = "plugins/TimeManagement.xml_WindowTitle";
 	private static final String PLUGINS_TIME_MANAGEMENT_XML_WINDOW_TITLE_ALL_NODES = "plugins/TimeManagement.xml_WindowTitle_All_Nodes";
-	private static final String WINDOW_PREFERENCE_STORAGE_PROPERTY = NodeList.class.getName() + "_properties";
-
+	private final String windowPreferenceStorageProperty;
+// = NodeList.class.getName() + "_properties"
 	private static String replace(final Pattern p, String input, final String replacement) {
 		final String result = HtmlUtils.getReplaceResult(p, input, replacement);
 		return result;
@@ -338,7 +343,7 @@ public class NodeList {
 	final private JComboBox mFilterTextSearchField;
 	private FlatNodeTableFilterModel mFlatNodeTableFilterModel;
 // 	final private ModeController modeController;
-	private JLabel mTreeLabel;
+	private JTextField mNodePath;
 	private TextRenderer textRenderer;
 	private boolean showAllNodes = false;
 	private TableSorter sorter;
@@ -351,11 +356,11 @@ public class NodeList {
 	final private boolean modal;
 	private final MapChangeListener mapChangeListener;
 
-	public NodeList(  final boolean showAllNodes, final boolean searchInAllMaps) {
-	    this(false, showAllNodes, searchInAllMaps);
+	public NodeList(  final boolean showAllNodes, final boolean searchInAllMaps, String windowPreferenceStorageProperty) {
+	    this(false, showAllNodes, searchInAllMaps, windowPreferenceStorageProperty);
     }
 
-	public NodeList( final boolean modal, final boolean showAllNodes, final boolean searchInAllMaps) {
+	public NodeList( final boolean modal, final boolean showAllNodes, final boolean searchInAllMaps, String windowPreferenceStorageProperty) {
 //		this.modeController = modeController;
 //		controller = modeController.getController();
 		this.modal = modal;
@@ -394,7 +399,7 @@ public class NodeList {
 		matchCase = new JCheckBox();
 		matchCase.addActionListener(listener);
 		mapChangeListener = new MapChangeListener();
-
+		this.windowPreferenceStorageProperty = windowPreferenceStorageProperty;
 	}
 
 	/**
@@ -411,7 +416,8 @@ public class NodeList {
 			setting.setColumnSorting(sorter.getSortingStatus(i));
 			storage.addTimeWindowColumnSetting(setting);
 		}
-		storage.storeDialogPositions(dialog, NodeList.WINDOW_PREFERENCE_STORAGE_PROPERTY);
+		storage.storeDialogPositions(dialog, windowPreferenceStorageProperty);
+		final boolean dialogWasFocused = dialog.isFocused();
 		dialog.setVisible(false);
 		dialog.dispose();
 		dialog = null;
@@ -419,7 +425,13 @@ public class NodeList {
 		final MapController mapController = modeController.getMapController();
 		mapController.removeMapChangeListener(mapChangeListener);
 		mapController.removeNodeChangeListener(mapChangeListener);
-		Controller.getCurrentController().getMapViewManager().removeMapSelectionListener(mapChangeListener);
+		final IMapViewManager mapViewManager = Controller.getCurrentController().getMapViewManager();
+		mapViewManager.removeMapSelectionListener(mapChangeListener);
+		if(dialogWasFocused) {
+			final Component selectedComponent = mapViewManager.getSelectedComponent();
+			if(selectedComponent != null)
+				selectedComponent.requestFocus();
+		}
 	}
 
 	protected void exportSelectedRowsAndClose() {
@@ -481,7 +493,8 @@ public class NodeList {
 						}
 					}
 					catch (Exception e) {
-						UITools.errorMessage(TextUtils.format("wrong_regexp", replacement, e.getMessage()));
+						final String message = e.getMessage();
+						UITools.errorMessage(TextUtils.format("wrong_regexp", replacement, message != null ? message : e.getClass().getSimpleName()));
 						return;
 					}
 					if (!StringUtils.equals(text, replaceResult)) {
@@ -646,17 +659,13 @@ public class NodeList {
 		tableConstraints.weighty = 10;
 		tableConstraints.fill = GridBagConstraints.BOTH;
 		contentPane.add(pane, tableConstraints);
-		mTreeLabel = new JLabel();
+		mNodePath = new JTextField();
+		mNodePath.setEditable(false);
 		layoutConstraints.gridy++;
 		GridBagConstraints treeConstraints = (GridBagConstraints) layoutConstraints.clone();
 		treeConstraints.fill = GridBagConstraints.BOTH;
 		@SuppressWarnings("serial")
-		JScrollPane scrollPane = new JScrollPane(mTreeLabel){
-			@Override
-			public boolean isValidateRoot() {
-				return false;
-			}
-		};
+		JScrollPane scrollPane = new JScrollPane(mNodePath, JScrollPane.VERTICAL_SCROLLBAR_NEVER, JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
 		contentPane.add(scrollPane, treeConstraints);
 		final AbstractAction exportAction = new AbstractAction(TextUtils.getText("plugins/TimeManagement.xml_Export")) {
 			/**
@@ -768,16 +777,16 @@ public class NodeList {
 				}
 				final ListSelectionModel lsm = (ListSelectionModel) e.getSource();
 				if (lsm.isSelectionEmpty()) {
-					mTreeLabel.setText("");
+					mNodePath.setText("");
 					return;
 				}
 				final int selectedRow = lsm.getLeadSelectionIndex();
 				final NodeModel mindMapNode = getMindMapNode(selectedRow);
-				mTreeLabel.setText(getNodeText(mindMapNode));
+				mNodePath.setText(getNodeText(mindMapNode));
 			}
 		});
 		final String marshalled = ResourceController.getResourceController().getProperty(
-		    NodeList.WINDOW_PREFERENCE_STORAGE_PROPERTY);
+				windowPreferenceStorageProperty);
 		final WindowConfigurationStorage result = TimeWindowConfigurationStorage.decorateDialog(marshalled, dialog);
 		final WindowConfigurationStorage storage = result;
 		if (storage != null) {
@@ -873,4 +882,12 @@ public class NodeList {
 			updateModel(model, child);
 		}
 	}
+	static private HashSet<Object> changeableProperties = new HashSet<Object>(
+			Arrays.asList(NodeModel.NODE_TEXT, NodeModel.NODE_ICON, DetailTextModel.class, NodeModel.NOTE_TEXT)
+			);
+	
+	private boolean hasTableFieldValueChanged(Object property) {
+		return changeableProperties.contains(property);
+	}
+
 }

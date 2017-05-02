@@ -36,8 +36,8 @@ import org.freeplane.core.io.IElementDOMHandler;
 import org.freeplane.core.io.IElementHandler;
 import org.freeplane.core.io.IExtensionElementWriter;
 import org.freeplane.core.io.ITreeWriter;
-import org.freeplane.core.resources.TranslatedObject;
 import org.freeplane.core.resources.ResourceController;
+import org.freeplane.core.resources.TranslatedObject;
 import org.freeplane.core.ui.components.UITools;
 import org.freeplane.core.undo.IActor;
 import org.freeplane.core.undo.IUndoHandler;
@@ -164,12 +164,12 @@ public class MapStyle extends PersistentNodeHook implements IExtension, IMapLife
 		        throws IOException {
 			final MapStyleModel mapStyleModel = (MapStyleModel) extension;
 			final MapModel styleMap = mapStyleModel.getStyleMap();
-			final String el = System.getProperty("line.separator");
 			if (styleMap == null) {
 				return;
 			}
 			final MapWriter mapWriter = Controller.getCurrentModeController().getMapController().getMapWriter();
 			final StringWriter sw = new StringWriter();
+			final String el = System.getProperty("line.separator");
 			sw.append(el);
 			sw.append("<map_styles>");
 			sw.append(el);
@@ -245,7 +245,7 @@ public class MapStyle extends PersistentNodeHook implements IExtension, IMapLife
 			bgColor = null;
 		}
 		if (alphaString != null) {
-			bgColor = ColorUtils.alphaToColor(alphaString, bgColor);
+			bgColor = ColorUtils.makeNonTransparent(ColorUtils.alphaToColor(alphaString, bgColor));
 		}
 		model.setBackgroundColor(bgColor);
 		final String zoomString = element.getAttribute("zoom", null);
@@ -429,7 +429,7 @@ public class MapStyle extends PersistentNodeHook implements IExtension, IMapLife
 		super.saveExtension(extension, element);
 		final Color backgroundColor = mapStyleModel.getBackgroundColor();
 		if (backgroundColor != null) {
-			ColorUtils.setColorAttributes(element, "background", "background_alpha", backgroundColor);
+			element.setAttribute("background", ColorUtils.colorToString(backgroundColor));
 		}
 		final float zoom = mapStyleModel.getZoom();
 		if (zoom != 1f) {
@@ -473,7 +473,8 @@ public class MapStyle extends PersistentNodeHook implements IExtension, IMapLife
 		Controller.getCurrentModeController().getMapController().setSaved(map, false);
 	}
 
-	public void setBackgroundColor(final MapStyleModel model, final Color actionColor) {
+	public void setBackgroundColor(final MapStyleModel model, final Color color) {
+		final Color actionColor = ColorUtils.makeNonTransparent(color);
 		final Color oldColor = model.getBackgroundColor();
 		if (actionColor == oldColor || actionColor != null && actionColor.equals(oldColor)) {
 			return;

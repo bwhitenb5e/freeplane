@@ -28,6 +28,9 @@ import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.Frame;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
 import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -39,6 +42,7 @@ import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.awt.event.KeyEvent;
 import java.net.URI;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
@@ -47,10 +51,12 @@ import javax.swing.FocusManager;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
+import javax.swing.JEditorPane;
 import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.KeyStroke;
+import javax.swing.RepaintManager;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.border.Border;
@@ -84,6 +90,9 @@ import org.freeplane.main.application.FreeplaneSplashModern;
  * @since 29.12.2008
  */
 public class UITools {
+	public static final String MENU_ITEM_FONT_SIZE_PROPERTY = "menuItemFontSize";
+	public static final String MAIN_FREEPLANE_FRAME = "mainFreeplaneFrame";
+
 	@SuppressWarnings("serial")
     public static final class InsertEolAction extends AbstractAction {
         public void actionPerformed(ActionEvent e) {
@@ -92,7 +101,6 @@ public class UITools {
         }
     }
 
-	public static final String MAIN_FREEPLANE_FRAME = "mainFreeplaneFrame";
 
 	public static void addEscapeActionToDialog(final JDialog dialog) {
 		class EscapeAction extends AbstractAction {
@@ -149,6 +157,8 @@ public class UITools {
 			p.y += y;
 		};
 	}
+	
+	static private final AtomicBoolean errorMessageQueued = new AtomicBoolean(false);
 
 	static public void errorMessage(final Object message) {
 		final String myMessage;
@@ -159,11 +169,26 @@ public class UITools {
 			myMessage = TextUtils.getText("undefined_error");
 		}
 		LogUtils.warn(myMessage);
-		EventQueue.invokeLater(new Runnable() {
-			public void run() {
-				JOptionPane.showMessageDialog(UITools.getCurrentRootComponent(), myMessage, "Freeplane", JOptionPane.ERROR_MESSAGE);
-			}
-		});
+		if(! errorMessageQueued.getAndSet(true))
+			EventQueue.invokeLater(new Runnable() {
+				public void run() {
+					final Component currentRootComponent = UITools.getCurrentRootComponent();
+					if(currentRootComponent != null) {
+						try {
+							currentRootComponent.validate();
+							JOptionPane.showMessageDialog(currentRootComponent, myMessage, "Freeplane", JOptionPane.ERROR_MESSAGE);
+						}
+						catch (Exception e) {
+							currentRootComponent.setVisible(false);
+							UITools.getFrame().setVisible(false);
+							JOptionPane.showMessageDialog(null, myMessage, "Freeplane", JOptionPane.ERROR_MESSAGE);
+							JOptionPane.showMessageDialog(null, TextUtils.getText("program_terminates"), "Freeplane", JOptionPane.ERROR_MESSAGE);
+							System.exit(-1);
+						}
+					}
+					errorMessageQueued.set(false);
+				}
+			});
 	}
 	
 	static public Component getCurrentRootComponent(){
@@ -237,41 +262,64 @@ public class UITools {
 
 	public static Rectangle getValidFrameBounds(final Component frame, int win_x, int win_y, int win_width,
 			int win_height) {
-		final Rectangle desktopBounds = getDesktopBounds(frame);
-		int screenWidth = desktopBounds.width;
+		GraphicsConfiguration graphicsConfiguration = findGraphicsConfiguration(frame, win_x, win_y);
+		final Rectangle screenBounds = getScreenBounds(graphicsConfiguration);
+		int screenWidth = screenBounds.width;
 		if(win_width != -1)
 			win_width = Math.min(win_width, screenWidth );
 		else
 			win_width =  screenWidth * 4 / 5;
-		int screenHeight = desktopBounds.height;
+		int screenHeight = screenBounds.height;
 		if(win_height != -1)
 			win_height = Math.min(win_height, screenHeight);
 		else
 			win_height =  screenHeight * 4 / 5;
 		if(win_x != -1){
-			win_x = Math.min(screenWidth + desktopBounds.x - win_width, win_x);
-			win_x = Math.max(desktopBounds.x, win_x);
+			win_x = Math.min(screenWidth + screenBounds.x - win_width, win_x);
+			win_x = Math.max(screenBounds.x, win_x);
 		}
 		else
-			win_x = desktopBounds.x + (screenWidth - win_width) / 2;
+			win_x = screenBounds.x + (screenWidth - win_width) / 2;
 		if(win_y != -1){
-			win_y = Math.max(desktopBounds.y, win_y);
-			win_y = Math.min(screenHeight + desktopBounds.y - win_height, win_y);
+			win_y = Math.max(screenBounds.y, win_y);
+			win_y = Math.min(screenHeight + screenBounds.y - win_height, win_y);
 		}
 		else
-			win_y = desktopBounds.y + (screenHeight - win_height) / 2;
+			win_y = screenBounds.y + (screenHeight - win_height) / 2;
 		final Rectangle frameBounds = new Rectangle( win_x, win_y, win_width, win_height);
 		return frameBounds;
 	}
 
-	public static Rectangle getDesktopBounds(Component frame) {
+	private static GraphicsConfiguration findGraphicsConfiguration(final Component component, int x, int y) {
+	    GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+	      GraphicsDevice[] gs = ge.getScreenDevices();
+	      for (int j = 0; j < gs.length; j++) {
+	          GraphicsDevice gd = gs[j];
+	          GraphicsConfiguration[] gc = gd.getConfigurations();
+	          for (int i=0; i < gc.length; i++) {
+	              final Rectangle screenBounds = gc[i].getBounds();
+	              if(screenBounds.contains(x, y))
+	            	  return gc[i];
+	          }
+	      }
+		return component != null ? component.getGraphicsConfiguration() : null;
+	}
+
+	public static Rectangle getAvailableScreenBounds(Component frame) {
+		final GraphicsConfiguration graphicsConfiguration = frame.getGraphicsConfiguration();
+		return getScreenBounds(graphicsConfiguration);
+    }
+
+	public static Rectangle getScreenBounds(final GraphicsConfiguration graphicsConfiguration) {
 		final Toolkit defaultToolkit = Toolkit.getDefaultToolkit();
-		final Insets screenInsets = defaultToolkit.getScreenInsets(frame.getGraphicsConfiguration());
-		final Dimension screenSize = defaultToolkit.getScreenSize();
+		final Insets screenInsets = defaultToolkit.getScreenInsets(graphicsConfiguration);
+		final Rectangle screenBounds = graphicsConfiguration.getBounds();
+		final Point screenLocation = screenBounds.getLocation();
+		final Dimension screenSize = screenBounds.getSize();
 		final int screenWidth = screenSize.width - screenInsets.left - screenInsets.right;
 		final int screenHeight = screenSize.height - screenInsets.top - screenInsets.bottom;
-		return new Rectangle(screenInsets.left,  screenInsets.top, screenWidth, screenHeight);
-    }
+		return new Rectangle(screenLocation.x + screenInsets.left,  screenLocation.y + screenInsets.top, screenWidth, screenHeight);
+	}
 
 	public static void setDialogLocationRelativeTo(final JDialog dialog, final Component c) {
 		if (c == null || ! c.isShowing()) {
@@ -286,7 +334,7 @@ public class UITools {
 		final int ph = parent.getHeight();
 		final int dw = dialog.getWidth();
 		final int dh = dialog.getHeight();
-		final Rectangle desktopBounds = getDesktopBounds(c);
+		final Rectangle desktopBounds = getAvailableScreenBounds(c);
 		final int minX = Math.max(parentLocation.x, desktopBounds.x);
 		final int minY = Math.max(parentLocation.y, desktopBounds.y);
 		final int maxX = Math.min(parentLocation.x + pw, desktopBounds.x + desktopBounds.width);
@@ -465,22 +513,6 @@ public class UITools {
 
 	public static final Dimension MAX_BUTTON_DIMENSION = new Dimension(1000, 1000);
 
-// FIXME: not used - can we remove it? -- Volker
-//	public static Controller getController(Component c) {
-//		if(c == null){
-//			return null;
-//		}
-//	    final JRootPane rootPane = SwingUtilities.getRootPane(c);
-//		if(rootPane == null){
-//			return null;
-//		}
-//	    Controller controller = (Controller) rootPane.getClientProperty(Controller.class);
-//	    if(controller != null){
-//	    	return controller;
-//	    }
-//	    return getController(JOptionPane.getFrameForComponent(rootPane));
-//    }
-
 	public static void focusOn(JComponent component) {
 		component.addAncestorListener(new AncestorListener() {
 			public void ancestorRemoved(AncestorEvent event) {
@@ -500,8 +532,14 @@ public class UITools {
 		});
     }
 
-	public static BasicStroke createStroke(int width, final int[] dash) {
-        final float[] fdash;
+	public static BasicStroke createStroke(float width, final int[] dash, int join) {
+		final float[] fdash = toFloats(dash);
+		final BasicStroke stroke = new BasicStroke(width, BasicStroke.CAP_BUTT, join, 1f, fdash, 0f);
+        return stroke;
+	}
+
+	public static float[] toFloats(final int[] dash) {
+		final float[] fdash;
     	if(dash  != null){
     		fdash = new float[dash.length];
     		int i = 0;
@@ -512,9 +550,8 @@ public class UITools {
     	else{
     		fdash = null;
     	}
-    	final BasicStroke stroke = new BasicStroke(width, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND, 1f, fdash, 0f);
-        return stroke;
-    }
+		return fdash;
+	}
 
 	public static void repaintAll(Container root) {
 		root.repaint();
@@ -597,25 +634,59 @@ public class UITools {
 	static {
 		float factor = 1f;
 		try {
-	        factor = UITools.getScreenResolution()  / 72f;
+	        factor = UITools.getScaleFactor();
         }
         catch (Exception e) {
         }
 		FONT_SCALE_FACTOR = factor;
 	}
 
-	public static int getScreenResolution() {
-		final int systemScreenResolution = Toolkit.getDefaultToolkit().getScreenResolution();
-		if(ResourceController.getResourceController().getBooleanProperty("apply_system_screen_resolution")){
-			return systemScreenResolution;
-		}
-		else
-			return ResourceController.getResourceController().getIntProperty("user_defined_screen_resolution", systemScreenResolution);
+	private static float getScaleFactor() {
+			final ResourceController resourceController = ResourceController.getResourceController();
+			int windowX = resourceController.getIntProperty("appwindow_x", 0);
+			int windowY = resourceController.getIntProperty("appwindow_y", 0);
+			final GraphicsConfiguration graphicsConfiguration = findGraphicsConfiguration(windowX, windowY);
+			final int userDefinedScreenResolution; 
+			if(graphicsConfiguration != null) {
+				final Rectangle screenBounds = graphicsConfiguration.getBounds();
+				final int w = screenBounds.width;
+				final int h = screenBounds.height;
+				final double diagonalPixels = Math.sqrt(w*w + h*h);
+				final double monitorSize = resourceController.getDoubleProperty("monitor_size_inches", 0);
+				if(monitorSize >= 1 && diagonalPixels >= 1){
+					userDefinedScreenResolution = (int) Math.round(diagonalPixels / monitorSize);
+					resourceController.setProperty("user_defined_screen_resolution", userDefinedScreenResolution);
+				}
+				else{
+					userDefinedScreenResolution = resourceController.getIntProperty("user_defined_screen_resolution", 96);
+					final double effectiveMonitorSize = Math.round(diagonalPixels / userDefinedScreenResolution * 10) / 10;
+					resourceController.setDefaultProperty("monitor_size_inches", Double.toString(effectiveMonitorSize));
+				}
+			}
+			else {
+				userDefinedScreenResolution = resourceController.getIntProperty("user_defined_screen_resolution", 96);
+				resourceController.setDefaultProperty("monitor_size_inches", Double.toString(0));
+			}
+			return userDefinedScreenResolution  / 72f;
     }
 
+	private static GraphicsConfiguration findGraphicsConfiguration(int windowX, int windowY) {
+		final GraphicsConfiguration graphicsConfiguration = findGraphicsConfiguration(null, windowX, windowY);
+		if(graphicsConfiguration != null || windowX == 0 && windowY == 0)
+			return graphicsConfiguration;
+		else
+			return findGraphicsConfiguration(null, 0, 0);
+	}
+	
 	public static Font scale(Font font) {
 		return font.deriveFont(font.getSize2D()*FONT_SCALE_FACTOR);
 	}
+	
+	public static Font scaleFontInt(Font font, double additionalFactor) {
+		return font.deriveFont(font.getStyle(), Math.round(font.getSize2D()*UITools.FONT_SCALE_FACTOR * additionalFactor));
+	}
+	
+	
 	public static Font invertScale(Font font) {
 		return font.deriveFont(font.getSize2D()/FONT_SCALE_FACTOR);
 	}
@@ -640,7 +711,7 @@ public class UITools {
 
 	public static boolean isEditingText() {
 	    final Component focusOwner = FocusManager.getCurrentKeyboardFocusManager().getFocusOwner();
-		final boolean isTextComponentFocused = focusOwner instanceof JTextComponent;
+		final boolean isTextComponentFocused = focusOwner instanceof JEditorPane;
 		return isTextComponentFocused && focusOwner.isShowing() && ((JTextComponent)focusOwner).isEditable();
     }
 
@@ -663,6 +734,10 @@ public class UITools {
 		}
 		else
 			runnable.run();
+	}
+
+	public static float getUIFontSize(double scalingFactor) {
+		return (int)Math.round(FONT_SCALE_FACTOR*scalingFactor * ResourceController.getResourceController().getIntProperty(MENU_ITEM_FONT_SIZE_PROPERTY, 10));
 	}
 
 }
